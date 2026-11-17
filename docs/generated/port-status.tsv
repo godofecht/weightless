@@ -516,17 +516,17 @@ bot/modules/who_to_see.py	1922	not-started
 bot/modules/words.py	11544	not-started		
 bot/modules/years_in.py	2246	not-started		
 bot/runtime.py	4806	partial	src/main.flow	turn pipeline and transcript; after-hooks and full memory semantics pending
-bot/understanding/__init__.py	138042	not-started		
+bot/understanding/__init__.py	138042	partial	src/understanding.flow	Simple baseline reading only; original full semantics pending
 bot/understanding/attempts.py	9930	not-started		
 bot/understanding/body.py	39096	not-started		
 bot/understanding/breeds.py	9312	not-started		
 bot/understanding/car_glass.py	5102	not-started		
 bot/understanding/cars.py	7896	not-started		
 bot/understanding/confusion.py	9045	not-started		
-bot/understanding/kinds.py	427954	not-started		
+bot/understanding/kinds.py	427954	partial	src/understanding.flow	Simple baseline reading only; original full semantics pending
 bot/understanding/lexicon.py	132408	not-started		
-bot/understanding/normalize.py	389781	not-started		
-bot/understanding/references.py	24625	not-started		
+bot/understanding/normalize.py	389781	partial	src/understanding.flow	Simple baseline reading only; original full semantics pending
+bot/understanding/references.py	24625	partial	src/understanding.flow	Simple baseline reading only; original full semantics pending
 bot/understanding/senses.py	12203	not-started		
-bot/understanding/topics.py	242972	not-started		
+bot/understanding/topics.py	242972	partial	src/understanding.flow	Simple baseline reading only; original full semantics pending
 pybot.py	6756	partial	src/main.flow	basic CLI parity, seed and timing pending
