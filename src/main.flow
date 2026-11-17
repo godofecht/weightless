@@ -424,6 +424,13 @@ function knowledge_reply(text: string, lower: string, memory: Memory) -> Proposa
 }
 
 function recall_reply(lower: string, memory: Memory) -> Proposal {
+    if contains(lower, "what did you say two turns ago") or contains(lower, "what did you say 2 turns ago") {
+        let prior: TurnRecord = recent_turn(memory, 2)
+        if same(prior.bot, "") {
+            return proposal("I don't have an answer from two turns ago.", "recall", 7000, memory)
+        }
+        return proposal("I said: " + prior.bot, "recall", 7000, memory)
+    }
     if contains(lower, "what did i say two turns ago") or contains(lower, "what did i say 2 turns ago") {
         let prior: TurnRecord = recent_turn(memory, 2)
         if same(prior.user, "") {
@@ -924,6 +931,22 @@ function run_self_tests() -> i32 {
         return 56
     }
     candidate_set_release(&repeatedCandidates)
+    let mut botTranscript: Memory = fresh_memory()
+    let firstBot: Proposal = turn("hi", &botTranscript)
+    let _secondBot: Proposal = turn("what is my name?", &botTranscript)
+    let oldBot: Proposal = turn("what did you say two turns ago?", &botTranscript)
+    if not same(oldBot.reply, "I said: " + firstBot.reply) or not same(oldBot.module, "recall") {
+        println("FAIL: two-turn bot transcript recall")
+        return 54
+    }
+    release_history(botTranscript)
+    let mut noBotTranscript: Memory = fresh_memory()
+    let missingBot: Proposal = turn("what did you say 2 turns ago?", &noBotTranscript)
+    if not same(missingBot.reply, "I don't have an answer from two turns ago.") {
+        println("FAIL: missing bot transcript history")
+        return 55
+    }
+    release_history(noBotTranscript)
     let mut safetyMemory: Memory = fresh_memory()
     safetyMemory.lastReply = "Careful safety response"
     let safetyFirst: Proposal = proposal("Careful safety response", "safety", 9000, safetyMemory)
@@ -1042,7 +1065,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 53 Flow runtime regression scenarios")
+    println("PASS: 55 Flow runtime regression scenarios")
     return 0
 }
 
