@@ -341,6 +341,9 @@ function prefer(current: Proposal, challenger: Proposal, memory: Memory) -> Prop
         return challenger
     }
     if challenger.priority == current.priority {
+        if current.priority >= 9000 {
+            return current
+        }
         if same(current.reply, memory.lastReply) and not same(challenger.reply, memory.lastReply) {
             return challenger
         }
@@ -794,6 +797,27 @@ function run_self_tests() -> i32 {
         println("FAIL: explicit lowercase name introduction")
         return 35
     }
+    let mut safetyMemory: Memory = fresh_memory()
+    safetyMemory.lastReply = "Careful safety response"
+    let safetyFirst: Proposal = proposal("Careful safety response", "safety", 9000, safetyMemory)
+    let safetySecond: Proposal = proposal("Alternative safety response", "other_safety", 9000, safetyMemory)
+    let safetyChosen: Proposal = prefer(safetyFirst, safetySecond, safetyMemory)
+    if not same(safetyChosen.module, "safety") {
+        println("FAIL: safety band must preserve original module ordering on ties")
+        return 47
+    }
+    let ordinaryChosen: Proposal = prefer(safetyFirst,
+        proposal("Ordinary response", "general", 8999, safetyMemory), safetyMemory)
+    if not same(ordinaryChosen.module, "safety") {
+        println("FAIL: ordinary responders cannot displace safety band")
+        return 48
+    }
+    let strongerChosen: Proposal = prefer(safetyFirst,
+        proposal("Higher safety response", "high_safety", 9001, safetyMemory), safetyMemory)
+    if not same(strongerChosen.module, "high_safety") {
+        println("FAIL: higher safety priority still wins")
+        return 49
+    }
     let mut emptyCandidates: CandidateSet = candidate_set_new()
     let emptyPicked: Proposal = choose(emptyCandidates, corrected, corrected)
     if not same(emptyPicked.module, "fallback") or not same(emptyPicked.reply, "Hello!") {
@@ -891,7 +915,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 43 Flow runtime regression scenarios")
+    println("PASS: 46 Flow runtime regression scenarios")
     return 0
 }
 
