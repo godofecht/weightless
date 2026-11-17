@@ -742,7 +742,6 @@ function run_self_tests() -> i32 {
     candidate_set_release(&collectedEmptyCandidates)
     let mut fallbackSource: Memory = fresh_memory()
     let _fallbackSeed: Proposal = turn("hello", &fallbackSource)
-    let fallbackBefore: ptr<TurnRecord> = fallbackSource.recent
     let fallbackResult: Proposal = turn("unmatched nonsense input", &fallbackSource)
     if not same(fallbackResult.module, "fallback") or fallbackSource.recentCount != 2 {
         println("FAIL: fallback must append transcript after candidate cleanup")
@@ -1386,7 +1385,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 85 Flow runtime regression scenarios")
+    println("PASS: 87 Flow runtime regression scenarios")
     return 0
 }
 
