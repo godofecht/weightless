@@ -985,6 +985,26 @@ function run_self_tests() -> i32 {
         println("FAIL: standalone anaphoric 'that' must inherit topic")
         return 60
     }
+    let trainingTopic: LineReading = understand_line("How is my training going?", "")
+    if not same(trainingTopic.topic, "") {
+        println("FAIL: training must not be classified as transport")
+        return 61
+    }
+    let pluggedTopic: LineReading = understand_line("I unplugged the cable", "")
+    if not same(pluggedTopic.topic, "") {
+        println("FAIL: unplugged must not be classified as electricity")
+        return 62
+    }
+    let trainTopic: LineReading = understand_line("When is the train?", "")
+    if not same(trainTopic.topic, "transport") {
+        println("FAIL: standalone train must retain transport topic")
+        return 63
+    }
+    let plugTopic: LineReading = understand_line("Is this plug safe?", "")
+    if not same(plugTopic.topic, "electricity") {
+        println("FAIL: standalone plug must retain electricity topic")
+        return 64
+    }
     let mut correctedAlias: Memory = fresh_memory()
     let _initialAlias: Proposal = turn("my name is Alex", &correctedAlias)
     let _changedAlias: Proposal = turn("actually, call me Morgan", &correctedAlias)
@@ -1121,7 +1141,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 61 Flow runtime regression scenarios")
+    println("PASS: 65 Flow runtime regression scenarios")
     return 0
 }
 
