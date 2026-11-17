@@ -542,6 +542,10 @@ function after_correction(text: string, memory: Memory) -> Memory {
         at = at + 8
     } elif index_of(clean, "no, call me ") == 0 {
         at = 12
+    } elif index_of(clean, "actually, call me ") == 0 {
+        at = 18
+    } elif index_of(clean, "please call me ") == 0 {
+        at = 15
     } else {
         return after
     }
@@ -1001,6 +1005,24 @@ function run_self_tests() -> i32 {
         println("FAIL: standalone plug must retain electricity topic")
         return 64
     }
+    let mut correctedAlias: Memory = fresh_memory()
+    let _initialAlias: Proposal = turn("my name is Alex", &correctedAlias)
+    let _changedAlias: Proposal = turn("actually, call me Morgan", &correctedAlias)
+    let aliasRecall: Proposal = turn("what is my name?", &correctedAlias)
+    if not same(aliasRecall.reply, "You're Morgan.") or
+       not same(facts_latest(correctedAlias.facts, "self", "name"), "Morgan") {
+        println("FAIL: actually-prefixed name correction")
+        return 65
+    }
+    release_history(correctedAlias)
+    let mut politeAlias: Memory = fresh_memory()
+    let _politeChange: Proposal = turn("please call me Taylor", &politeAlias)
+    let politeRecall: Proposal = turn("what is my name?", &politeAlias)
+    if not same(politeRecall.reply, "You're Taylor.") {
+        println("FAIL: polite name correction")
+        return 66
+    }
+    release_history(politeAlias)
     let mut safetyMemory: Memory = fresh_memory()
     safetyMemory.lastReply = "Careful safety response"
     let safetyFirst: Proposal = proposal("Careful safety response", "safety", 9000, safetyMemory)
@@ -1119,7 +1141,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 63 Flow runtime regression scenarios")
+    println("PASS: 65 Flow runtime regression scenarios")
     return 0
 }
 
