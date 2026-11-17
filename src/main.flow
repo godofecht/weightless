@@ -653,10 +653,10 @@ function candidate_set_add_owned(set: ptr<CandidateSet>, value: Proposal, observ
     return false
 }
 
-function release_candidate_transcripts(candidates: CandidateSet, observed: Memory) {
+function release_candidate_transcripts(candidates: CandidateSet, observed: Memory, retained: ptr<TurnRecord>) {
     for i in 0 to candidates.count {
         let candidate: Proposal = candidates.values[i]
-        if candidate.memory.recent != null and candidate.memory.recent != observed.recent {
+        if candidate.memory.recent != null and candidate.memory.recent != observed.recent and candidate.memory.recent != retained {
             free(candidate.memory.recent as ptr<void>)
         }
     }
@@ -698,7 +698,7 @@ function turn_with_candidate_trace(text: string, state: ptr<Memory>, traceCandid
         free(previous.recent as ptr<void>)
     }
     state[0] = run_after_hooks(text, committed, previous)
-    release_candidate_transcripts(candidates, observed)
+    release_candidate_transcripts(candidates, observed, committed.memory.recent)
     candidate_set_release(&candidates)
     return committed
 }
@@ -766,7 +766,7 @@ function run_self_tests() -> i32 {
         println("FAIL: candidate transcript mutation leaked into session")
         return 85
     }
-    release_candidate_transcripts(independentCandidates, candidateObserved)
+    release_candidate_transcripts(independentCandidates, candidateObserved, null)
     candidate_set_release(&independentCandidates)
     release_history(candidateSource)
     let mut isolationSource: Memory = fresh_memory()
@@ -796,7 +796,7 @@ function run_self_tests() -> i32 {
         println("FAIL: candidate mutation must not change committed transcript")
         return 78
     }
-    release_candidate_transcripts(isolatedCandidates, candidateMemory)
+    release_candidate_transcripts(isolatedCandidates, candidateMemory, null)
     candidate_set_release(&isolatedCandidates)
     release_history(candidateMemory)
     let mut longTranscript: Memory = fresh_memory()
