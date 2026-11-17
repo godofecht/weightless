@@ -424,6 +424,13 @@ function knowledge_reply(text: string, lower: string, memory: Memory) -> Proposa
 }
 
 function recall_reply(lower: string, memory: Memory) -> Proposal {
+    if contains(lower, "which module answered two turns ago") or contains(lower, "which module answered 2 turns ago") {
+        let prior: TurnRecord = recent_turn(memory, 2)
+        if same(prior.module, "") {
+            return proposal("I don't have a module from two turns ago.", "recall", 7000, memory)
+        }
+        return proposal("The module was " + prior.module + ".", "recall", 7000, memory)
+    }
     if contains(lower, "what did you say two turns ago") or contains(lower, "what did you say 2 turns ago") {
         let prior: TurnRecord = recent_turn(memory, 2)
         if same(prior.bot, "") {
@@ -947,6 +954,23 @@ function run_self_tests() -> i32 {
         return 55
     }
     release_history(noBotTranscript)
+    let mut moduleTranscript: Memory = fresh_memory()
+    let firstModule: Proposal = turn("hi", &moduleTranscript)
+    let _moduleSecond: Proposal = turn("what is my name?", &moduleTranscript)
+    let oldModule: Proposal = turn("which module answered two turns ago?", &moduleTranscript)
+    if not same(oldModule.reply, "The module was " + firstModule.module + ".") or
+       not same(oldModule.module, "recall") {
+        println("FAIL: historical module attribution from structured transcript")
+        return 57
+    }
+    release_history(moduleTranscript)
+    let mut noModuleTranscript: Memory = fresh_memory()
+    let absentModule: Proposal = turn("which module answered 2 turns ago?", &noModuleTranscript)
+    if not same(absentModule.reply, "I don't have a module from two turns ago.") {
+        println("FAIL: missing historical module attribution")
+        return 58
+    }
+    release_history(noModuleTranscript)
     let misleadingFollowup: LineReading = understand_line("What is Thatcher?", "kettle")
     if misleadingFollowup.followup or not same(misleadingFollowup.topic, "") {
         println("FAIL: embedded 'that' must not inherit previous topic")
@@ -1075,7 +1099,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 57 Flow runtime regression scenarios")
+    println("PASS: 59 Flow runtime regression scenarios")
     return 0
 }
 
