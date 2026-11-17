@@ -785,8 +785,8 @@ function run_self_tests() -> i32 {
     release_history(isolationSource)
     let mut candidateMemory: Memory = fresh_memory()
     let _candidateTurn: Proposal = turn("hello", &candidateMemory)
-    let candidateReading: LineReading = understand_line("what is my name?", candidateMemory.topic)
-    let mut isolatedCandidates: CandidateSet = collect_responses("what is my name?", candidateReading, candidateMemory, candidateMemory)
+    let isolationReading: LineReading = understand_line("what is my name?", candidateMemory.topic)
+    let mut isolatedCandidates: CandidateSet = collect_responses("what is my name?", isolationReading, candidateMemory, candidateMemory)
     if isolatedCandidates.count == 0 or isolatedCandidates.values[0].memory.recent == candidateMemory.recent {
         println("FAIL: responder candidate transcript must be isolated")
         return 77
