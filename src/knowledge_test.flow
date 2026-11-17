@@ -1,0 +1,55 @@
+import .knowledge { KnowledgeHit, knowledge_lookup, knowledge_match_score, knowledge_corpus_count, knowledge_corpus_release }
+
+function main() -> i32 {
+    if knowledge_match_score("a wall socket is hot", "socket|wall socket") != 3 {
+        println("FAIL: two-word phrase scores 3")
+        return 1
+    }
+    if knowledge_match_score("a wall socket is hot", "socket") != 2 {
+        println("FAIL: single word scores 2")
+        return 2
+    }
+    if knowledge_match_score("there is a cable", "cab|car") != 0 {
+        println("FAIL: partial words do not match")
+        return 3
+    }
+    if knowledge_match_score("power socket", "socket|power socket") != 3 {
+        println("FAIL: best matching alternative wins the weight")
+        return 4
+    }
+    if knowledge_match_score("no match", "") != 0 {
+        println("FAIL: empty alternatives do not match")
+        return 5
+    }
+    if knowledge_match_score("microwave oven", "microwave oven") != 3 {
+        println("FAIL: exact phrase match")
+        return 6
+    }
+    let power: KnowledgeHit = knowledge_lookup("my wall socket is hot and buzzing")
+    if power.entry != "power-hot" or power.score != 7 {
+        println("FAIL: power entry phrase+word+bias score")
+        return 7
+    }
+    let screen: KnowledgeHit = knowledge_lookup("should i get a laptop stand?")
+    if screen.entry != "desk-screen-height" or screen.score < 8 {
+        println("FAIL: desk entry specificity ranking")
+        return 8
+    }
+    if knowledge_corpus_count() != 5 {
+        println("FAIL: source-attributed corpus load")
+        return 9
+    }
+    let pasta: KnowledgeHit = knowledge_lookup("how do i cook pasta in the microwave")
+    if pasta.entry != "pasta-in-the-microwave" {
+        println("FAIL: source corpus entry with both keys")
+        return 10
+    }
+    let exclusion: KnowledgeHit = knowledge_lookup("my tooth socket is hot")
+    if exclusion.score > 0 {
+        println("FAIL: exclusions still take precedence over positive match")
+        return 11
+    }
+    knowledge_corpus_release()
+    println("PASS: 11 source-weighting Flow regressions")
+    return 0
+}
