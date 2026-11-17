@@ -637,6 +637,23 @@ function collect_responses(text: string, reading: LineReading, previous: Memory,
     return candidates
 }
 
+function isolate_candidate_transcripts(candidates: ptr<CandidateSet>) {
+    for i in 0 to candidates[0].count {
+        let mut candidate: Proposal = candidates[0].values[i]
+        candidate.memory = isolate_winning_transcript(candidate.memory)
+        candidates[0].values[i] = candidate
+    }
+}
+
+function release_candidate_transcripts(candidates: CandidateSet, observed: Memory) {
+    for i in 0 to candidates.count {
+        let candidate: Proposal = candidates.values[i]
+        if candidate.memory.recent != null and candidate.memory.recent != observed.recent {
+            free(candidate.memory.recent as ptr<void>)
+        }
+    }
+}
+
 function isolate_winning_transcript(memory: Memory) -> Memory {
     if memory.recent == null or memory.recentCount == 0 {
         return memory
@@ -660,6 +677,7 @@ function turn_with_candidate_trace(text: string, state: ptr<Memory>, traceCandid
     let reading: LineReading = understand_line(text, previous.topic)
     let observed: Memory = run_observers(text, previous, reading)
     let mut candidates: CandidateSet = collect_responses(text, reading, previous, observed)
+    isolate_candidate_transcripts(&candidates)
     let winner: Proposal = choose_for_text(candidates, previous, observed, text)
     if traceCandidates {
         for i in 0 to candidates.count {
@@ -667,13 +685,14 @@ function turn_with_candidate_trace(text: string, state: ptr<Memory>, traceCandid
             println("WEIGHTLESS_CANDIDATE\t" + candidate.module + "\t" + candidate.reply)
         }
     }
-    candidate_set_release(&candidates)
     let mut committed: Proposal = winner
     committed.memory = isolate_winning_transcript(winner.memory)
     if committed.memory.recent != previous.recent and previous.recent != null {
         free(previous.recent as ptr<void>)
     }
     state[0] = run_after_hooks(text, committed, previous)
+    release_candidate_transcripts(candidates, observed)
+    candidate_set_release(&candidates)
     return committed
 }
 
@@ -728,6 +747,23 @@ function run_self_tests() -> i32 {
     }
     free(isolationCopy.recent as ptr<void>)
     release_history(isolationSource)
+    let mut candidateMemory: Memory = fresh_memory()
+    let _candidateTurn: Proposal = turn("hello", &candidateMemory)
+    let candidateReading: LineReading = understand_line("what is my name?", candidateMemory.topic)
+    let mut isolatedCandidates: CandidateSet = collect_responses("what is my name?", candidateReading, candidateMemory, candidateMemory)
+    isolate_candidate_transcripts(&isolatedCandidates)
+    if isolatedCandidates.count == 0 or isolatedCandidates.values[0].memory.recent == candidateMemory.recent {
+        println("FAIL: responder candidate transcript must be isolated")
+        return 77
+    }
+    isolatedCandidates.values[0].memory.recent[0] = TurnRecord { user: "candidate-only", bot: "", module: "" }
+    if not same(candidateMemory.recent[0].user, "hello") {
+        println("FAIL: candidate mutation must not change committed transcript")
+        return 78
+    }
+    release_candidate_transcripts(isolatedCandidates, candidateMemory)
+    candidate_set_release(&isolatedCandidates)
+    release_history(candidateMemory)
     let mut memory: Memory = fresh_memory()
     let a: Proposal = turn("hi, i'm Sam", &memory)
     if not same(a.reply, "Nice to meet you, Sam. What can I help with?") {
@@ -1282,7 +1318,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 76 Flow runtime regression scenarios")
+    println("PASS: 78 Flow runtime regression scenarios")
     return 0
 }
 
