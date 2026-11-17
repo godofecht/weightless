@@ -1023,6 +1023,11 @@ function run_self_tests() -> i32 {
         return 66
     }
     release_history(politeAlias)
+    if not is_reset_command(" /RESET ") or not is_reset_command("/reset") or
+       is_reset_command("/reset now") or is_reset_command("reset") {
+        println("FAIL: reset command parsing across input modes")
+        return 67
+    }
     let mut safetyMemory: Memory = fresh_memory()
     safetyMemory.lastReply = "Careful safety response"
     let safetyFirst: Proposal = proposal("Careful safety response", "safety", 9000, safetyMemory)
@@ -1141,7 +1146,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 65 Flow runtime regression scenarios")
+    println("PASS: 66 Flow runtime regression scenarios")
     return 0
 }
 
@@ -1149,6 +1154,10 @@ function show_help() {
     println("Weightless: a rule-based chatbot in Flow")
     println("Usage: weightless [-p TEXT] [-i] [-v] [-s N] [--trace] [--trace-candidates] [--knowledge-stats] [--self-test]")
     println("Commands in interactive mode: /help /reset /exit")
+}
+
+function is_reset_command(text: string) -> bool {
+    return same(lower_ascii(trimmed(text)), "/reset")
 }
 
 function main() -> i32 {
@@ -1238,20 +1247,17 @@ function main() -> i32 {
             break
         }
         let cmd: string = lower_ascii(trimmed(line.text))
-        if trace and same(cmd, "/reset") {
+        if is_reset_command(line.text) {
             release_history(memory)
             memory = fresh_memory()
+            if interactive {
+                println("New conversation.")
+            }
             continue
         }
         if interactive {
             if same(cmd, "/exit") or same(cmd, "/quit") or same(cmd, "/bye") {
                 break
-            }
-            if same(cmd, "/reset") {
-                release_history(memory)
-                memory = fresh_memory()
-                println("New conversation.")
-                continue
             }
             if same(cmd, "/help") {
                 show_help()
