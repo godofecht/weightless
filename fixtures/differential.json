@@ -130,6 +130,38 @@
         "my name is alex",
         "what is my name?"
       ]
+    },
+    {
+      "name": "relative_name_memory",
+      "turns": [
+        "my sister's name is Lucy",
+        "what's my sister's name?",
+        "my name is Sam",
+        "what's my name?",
+        "actually my sister's name is Maya",
+        "what's my sister's name?"
+      ]
+    },
+    {
+      "name": "occupation_memory",
+      "turns": [
+        "i work as a teacher",
+        "what is my job?"
+      ]
+    },
+    {
+      "name": "multiword_place_memory",
+      "turns": [
+        "I live in New York",
+        "where do i live?"
+      ]
+    },
+    {
+      "name": "multiword_job_memory",
+      "turns": [
+        "my job is software engineer",
+        "what do i do for work?"
+      ]
     }
   ]
 }

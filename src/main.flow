@@ -1,6 +1,7 @@
 import std.bytebuf { ByteBuf, bb_new, bb_putc, bb_str, bb_free }
 import std.process { proc_argc, proc_argv }
 import .knowledge { KnowledgeHit, knowledge_lookup, knowledge_corpus_count, knowledge_corpus_release }
+import .facts { FactNode, facts_note, facts_latest, facts_latest_turn, facts_count, facts_release }
 
 extern {
     function strlen(s: string) -> i64
@@ -26,7 +27,8 @@ struct Memory {
     turns: i32,
     recent: ptr<TurnRecord>,
     recentCount: i32,
-    recentCapacity: i32
+    recentCapacity: i32,
+    facts: ptr<FactNode>
 }
 
 struct Proposal {
@@ -56,7 +58,8 @@ function fresh_memory() -> Memory {
         turns: 0,
         recent: null,
         recentCount: 0,
-        recentCapacity: 0
+        recentCapacity: 0,
+        facts: null
     }
 }
 
@@ -167,6 +170,43 @@ function extract_word(s: string, start: i32) -> string {
     return name
 }
 
+function extract_fact_value(text: string, start: i32, maxWords: i32) -> string {
+    let bytes: ptr<u8> = text as ptr<u8>
+    let total: i32 = strlen(text) as i32
+    let out: ptr<ByteBuf> = bb_new(64)
+    let mut i: i32 = start
+    let mut count: i32 = 0
+    while i < total and count < maxWords {
+        while i < total and whitespace(bytes[i]) {
+            i = i + 1
+        }
+        if i >= total {
+            break
+        }
+        let part: string = extract_word(text, i)
+        if same(part, "") {
+            break
+        }
+        let low: string = lower_ascii(part)
+        if same(low, "and") or same(low, "but") or same(low, "because") or same(low, "so") {
+            break
+        }
+        if count > 0 {
+            bb_putc(out, 32)
+        }
+        let letters: ptr<u8> = part as ptr<u8>
+        let n: i32 = strlen(part) as i32
+        for j in 0 to n {
+            bb_putc(out, letters[j])
+        }
+        count = count + 1
+        i = i + n
+    }
+    let value: string = bb_str(out)
+    bb_free(out)
+    return value
+}
+
 function observe(text: string, memory: Memory) -> Memory {
     let mut next: Memory = memory
     let lower: string = lower_ascii(text)
@@ -186,12 +226,63 @@ function observe(text: string, memory: Memory) -> Memory {
             }
         }
     }
-    if start >= 0 {
+    if start >= 0 and not contains(lower, "?") {
         let name: string = extract_word(text, start)
         if not same(name, "") {
             let initial: u8 = (name as ptr<u8>)[0]
             if explicitName or (initial >= 65 and initial <= 90) {
                 next.name = name
+                next.facts = facts_note(next.facts, "self", "name", name, text, next.turns + 1)
+            }
+        }
+    }
+    if not contains(lower, "?") {
+        let mut personStart: i32 = index_of(lower, "my sister's name is ")
+        let mut owner: string = "sister"
+        let mut prefix: string = "my sister's name is "
+        if personStart < 0 {
+            personStart = index_of(lower, "my brother's name is ")
+            owner = "brother"
+            prefix = "my brother's name is "
+        }
+        if personStart < 0 {
+            personStart = index_of(lower, "my mum's name is ")
+            owner = "mum"
+            prefix = "my mum's name is "
+        }
+        if personStart < 0 {
+            personStart = index_of(lower, "my dad's name is ")
+            owner = "dad"
+            prefix = "my dad's name is "
+        }
+        if personStart >= 0 {
+            let otherName: string = extract_fact_value(text, personStart + (strlen(prefix) as i32), 2)
+            next.facts = facts_note(next.facts, owner, "name", otherName, text, next.turns + 1)
+        }
+
+        let mut jobStart: i32 = index_of(lower, "my job is ")
+        let mut jobPrefix: string = "my job is "
+        if jobStart < 0 and first_word(lower, "i") {
+            jobStart = index_of(lower, "i work as ")
+            jobPrefix = "i work as "
+        }
+        if jobStart >= 0 {
+            let jobAt: i32 = jobStart + (strlen(jobPrefix) as i32)
+            let first: string = extract_word(text, jobAt)
+            let article: string = lower_ascii(first)
+            let mut job: string = ""
+            if same(article, "a") or same(article, "an") {
+                job = extract_fact_value(text, jobAt + (strlen(first) as i32) + 1, 3)
+            } else {
+                job = extract_fact_value(text, jobAt, 3)
+            }
+            next.facts = facts_note(next.facts, "self", "job", job, text, next.turns + 1)
+        }
+        if first_word(lower, "i") {
+            let cityStart: i32 = index_of(lower, "i live in ")
+            if cityStart >= 0 {
+                let city: string = extract_fact_value(text, cityStart + 10, 3)
+                next.facts = facts_note(next.facts, "self", "city", city, text, next.turns + 1)
             }
         }
     }
@@ -323,6 +414,43 @@ function recall_reply(lower: string, memory: Memory) -> Proposal {
     return proposal("", "recall", 7000, memory)
 }
 
+function fact_reply(lower: string, memory: Memory) -> Proposal {
+    let mut owner: string = ""
+    if contains(lower, "sister's name") {
+        owner = "sister"
+    } elif contains(lower, "brother's name") {
+        owner = "brother"
+    } elif contains(lower, "mum's name") {
+        owner = "mum"
+    } elif contains(lower, "dad's name") {
+        owner = "dad"
+    }
+    if not same(owner, "") and
+       (contains(lower, "what") or contains(lower, "remember") or contains(lower, "tell me")) {
+        let value: string = facts_latest(memory.facts, owner, "name")
+        if same(value, "") {
+            return proposal("You haven't told me your " + owner + "'s name.", "fact_recall", 7000, memory)
+        }
+        return proposal("Your " + owner + "'s name is " + value + ".", "fact_recall", 7000, memory)
+    }
+    if contains(lower, "what's my job") or contains(lower, "what is my job") or
+       contains(lower, "what do i do for work") {
+        let value: string = facts_latest(memory.facts, "self", "job")
+        if same(value, "") {
+            return proposal("You haven't told me your job yet.", "fact_recall", 7000, memory)
+        }
+        return proposal("You told me your job is " + value + ".", "fact_recall", 7000, memory)
+    }
+    if contains(lower, "where do i live") or contains(lower, "what city did i say i live in") {
+        let value: string = facts_latest(memory.facts, "self", "city")
+        if same(value, "") {
+            return proposal("You haven't told me where you live.", "fact_recall", 7000, memory)
+        }
+        return proposal("You said you live in " + value + ".", "fact_recall", 7000, memory)
+    }
+    return proposal("", "fact_recall", 7000, memory)
+}
+
 function recent_turn(memory: Memory, stepsBack: i32) -> TurnRecord {
     if stepsBack < 1 or stepsBack > memory.recentCount or memory.recent == null {
         return TurnRecord { user: "", bot: "", module: "" }
@@ -357,6 +485,7 @@ function release_history(memory: Memory) {
     if memory.recent != null {
         free(memory.recent as ptr<void>)
     }
+    facts_release(memory.facts)
 }
 
 function after_correction(text: string, memory: Memory) -> Memory {
@@ -373,6 +502,7 @@ function after_correction(text: string, memory: Memory) -> Memory {
     let name: string = extract_word(text, at)
     if not same(name, "") {
         after.name = name
+        after.facts = facts_note(after.facts, "self", "name", name, text, after.turns + 1)
     }
     return after
 }
@@ -408,6 +538,7 @@ function turn_with_candidate_trace(text: string, state: ptr<Memory>, traceCandid
     let _k: bool = candidate_set_add(&candidates, knowledge_reply(text, clean, observed))
     let _n: bool = candidate_set_add(&candidates, name_reply(text, clean, observed))
     let _r: bool = candidate_set_add(&candidates, recall_reply(clean, observed))
+    let _f: bool = candidate_set_add(&candidates, fact_reply(clean, observed))
     let winner: Proposal = choose(candidates, previous, observed)
     if traceCandidates {
         for i in 0 to candidates.count {
@@ -660,6 +791,74 @@ function run_self_tests() -> i32 {
         return 33
     }
     candidate_set_release(&emptyCandidates)
+    let mut factMemory: Memory = fresh_memory()
+    let _relative: Proposal = turn("my sister's name is Lucy", &factMemory)
+    let sister: Proposal = turn("what's my sister's name?", &factMemory)
+    if not same(sister.reply, "Your sister's name is Lucy.") or
+       facts_count(factMemory.facts) != 1 {
+        println("FAIL: attributed relative name")
+        return 36
+    }
+    let unknownSelf: Proposal = turn("what's my name?", &factMemory)
+    if not same(unknownSelf.reply, "You haven't told me your name yet.") {
+        println("FAIL: relative facts never become self facts")
+        return 37
+    }
+    let _correctSister: Proposal = turn("actually my sister's name is Maya", &factMemory)
+    let sisterCorrected: Proposal = turn("what's my sister's name?", &factMemory)
+    if not same(sisterCorrected.reply, "Your sister's name is Maya.") or
+       facts_latest_turn(factMemory.facts, "sister", "name") != 4 {
+        println("FAIL: corrected relative fact and source chronology")
+        return 38
+    }
+    let _selfIntro: Proposal = turn("my name is Sam", &factMemory)
+    let selfRecall: Proposal = turn("what's my name?", &factMemory)
+    if not same(selfRecall.reply, "You're Sam.") or
+       not same(facts_latest(factMemory.facts, "self", "name"), "Sam") {
+        println("FAIL: self name stored separately from relatives")
+        return 39
+    }
+    let _job: Proposal = turn("i work as a teacher", &factMemory)
+    let jobRecall: Proposal = turn("what is my job?", &factMemory)
+    if not same(jobRecall.reply, "You told me your job is teacher.") {
+        println("FAIL: job observation and recall")
+        return 40
+    }
+    let _city: Proposal = turn("i live in Cambridge", &factMemory)
+    let cityRecall: Proposal = turn("where do i live?", &factMemory)
+    if not same(cityRecall.reply, "You said you live in Cambridge.") {
+        println("FAIL: city observation and recall")
+        return 41
+    }
+    let _rename: Proposal = turn("no, call me Alex", &factMemory)
+    let renamed: Proposal = turn("what's my name?", &factMemory)
+    if not same(renamed.reply, "You're Alex.") or
+       not same(facts_latest(factMemory.facts, "self", "name"), "Alex") or
+       facts_count(factMemory.facts) != 6 {
+        println("FAIL: corrected self identity in append-only fact log")
+        return 42
+    }
+    release_history(factMemory)
+    factMemory = fresh_memory()
+    let forgotten: Proposal = turn("what's my sister's name?", &factMemory)
+    if not same(forgotten.reply, "You haven't told me your sister's name.") or
+       facts_count(factMemory.facts) != 0 {
+        println("FAIL: reset removes owned fact history")
+        return 43
+    }
+    release_history(factMemory)
+    let mut phrases: Memory = fresh_memory()
+    let _placePhrase: Proposal = turn("I live in New York", &phrases)
+    let _jobPhrase: Proposal = turn("my job is software engineer", &phrases)
+    let _familyPhrase: Proposal = turn("my sister's name is Mary Jane", &phrases)
+    if not same(facts_latest(phrases.facts, "self", "city"), "New York") or
+       not same(facts_latest(phrases.facts, "self", "job"), "software engineer") or
+       not same(facts_latest(phrases.facts, "sister", "name"), "Mary Jane") or
+       facts_count(phrases.facts) != 3 {
+        println("FAIL: multiword attributed fact extraction")
+        return 44
+    }
+    release_history(phrases)
     release_history(unidentified)
     release_history(corrected)
     release_history(updated)
@@ -667,7 +866,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 33 Flow runtime regression scenarios")
+    println("PASS: 41 Flow runtime regression scenarios")
     return 0
 }
 
