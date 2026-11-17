@@ -218,10 +218,18 @@ function observe(text: string, memory: Memory) -> Memory {
         start = start + 11
     } else {
         start = index_of(lower, "i'm ")
+        if start != 0 and not (start == 4 and
+            (index_of(lower, "hi, i'm ") == 0 or index_of(lower, "hey i'm ") == 0)) and
+            not (start == 7 and index_of(lower, "hello, i'm ") == 0) {
+            start = -1
+        }
         if start >= 0 {
             start = start + 4
         } else {
             start = index_of(lower, "i am ")
+            if start != 0 {
+                start = -1
+            }
             if start >= 0 {
                 start = start + 5
             }
@@ -1037,6 +1045,21 @@ function run_self_tests() -> i32 {
         return 68
     }
     release_history(spacedCorrection)
+    let mut quotedSelf: Memory = fresh_memory()
+    let _quotedSelfTurn: Proposal = turn("She said I'm Morgan yesterday", &quotedSelf)
+    if not same(quotedSelf.name, "") or
+       not same(facts_latest(quotedSelf.facts, "self", "name"), "") {
+        println("FAIL: quoted first-person statement must not set user name")
+        return 67
+    }
+    release_history(quotedSelf)
+    let mut actualSelf: Memory = fresh_memory()
+    let _actualSelfTurn: Proposal = turn("I'm Morgan", &actualSelf)
+    if not same(actualSelf.name, "Morgan") {
+        println("FAIL: first-person introduction must set user name")
+        return 68
+    }
+    release_history(actualSelf)
     let mut safetyMemory: Memory = fresh_memory()
     safetyMemory.lastReply = "Careful safety response"
     let safetyFirst: Proposal = proposal("Careful safety response", "safety", 9000, safetyMemory)
@@ -1155,7 +1178,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 67 Flow runtime regression scenarios")
+    println("PASS: 69 Flow runtime regression scenarios")
     return 0
 }
 
