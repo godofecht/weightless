@@ -406,6 +406,13 @@ function knowledge_reply(text: string, lower: string, memory: Memory) -> Proposa
 }
 
 function recall_reply(lower: string, memory: Memory) -> Proposal {
+    if contains(lower, "what did i say two turns ago") or contains(lower, "what did i say 2 turns ago") {
+        let prior: TurnRecord = recent_turn(memory, 2)
+        if same(prior.user, "") {
+            return proposal("I don't have a message from two turns ago.", "recall", 7000, memory)
+        }
+        return proposal("You said: " + prior.user, "recall", 7000, memory)
+    }
     if contains(lower, "what did i just say") or contains(lower, "what did i say last") {
         if memory.turns == 0 {
             return proposal("You haven't said anything before this message.", "recall", 7000, memory)
@@ -797,6 +804,22 @@ function run_self_tests() -> i32 {
         println("FAIL: explicit lowercase name introduction")
         return 35
     }
+    let mut transcriptMemory: Memory = fresh_memory()
+    let _one: Proposal = turn("hello", &transcriptMemory)
+    let _two: Proposal = turn("thanks", &transcriptMemory)
+    let twoBack: Proposal = turn("what did i say two turns ago?", &transcriptMemory)
+    if not same(twoBack.reply, "You said: hello") or not same(twoBack.module, "recall") {
+        println("FAIL: structured transcript two-turn recall")
+        return 50
+    }
+    release_history(transcriptMemory)
+    let mut emptyTranscript: Memory = fresh_memory()
+    let unavailable: Proposal = turn("what did i say 2 turns ago?", &emptyTranscript)
+    if not same(unavailable.reply, "I don't have a message from two turns ago.") {
+        println("FAIL: missing older transcript entry")
+        return 51
+    }
+    release_history(emptyTranscript)
     let mut safetyMemory: Memory = fresh_memory()
     safetyMemory.lastReply = "Careful safety response"
     let safetyFirst: Proposal = proposal("Careful safety response", "safety", 9000, safetyMemory)
@@ -915,7 +938,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 46 Flow runtime regression scenarios")
+    println("PASS: 48 Flow runtime regression scenarios")
     return 0
 }
 
