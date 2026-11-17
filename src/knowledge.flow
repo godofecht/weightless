@@ -1,0 +1,126 @@
+# Source-derived knowledge rows from Hugging Face PyBot.
+# Upstream: huggingface/pybot@7d63c7fbebb44c7e466e5c8b5c1f341ab767929e
+# Paths: bot/knowledge/power_heat.py, desk_setup.py, parking.py
+# Apache-2.0; NOTICE and LICENSE are in the repository.
+
+extern {
+    function strlen(s: string) -> i64
+}
+
+export struct KnowledgeHit {
+    reply: string,
+    module: string,
+    entry: string,
+    score: i32
+}
+
+function is_word_byte(c: u8) -> bool {
+    return (c >= 97 and c <= 122) or
+           (c >= 65 and c <= 90) or
+           (c >= 48 and c <= 57) or c == 95
+}
+
+function segment_in_text(text: string, alternatives: string, start: i32, end: i32) -> bool {
+    let size: i32 = end - start
+    if size <= 0 {
+        return false
+    }
+    let n: i32 = strlen(text) as i32
+    if size > n {
+        return false
+    }
+    let hay: ptr<u8> = text as ptr<u8>
+    let needle: ptr<u8> = alternatives as ptr<u8>
+    let mut i: i32 = 0
+    while i + size <= n {
+        let mut j: i32 = 0
+        while j < size and hay[i + j] == needle[start + j] {
+            j = j + 1
+        }
+        if j == size {
+            let left: bool = i == 0 or not is_word_byte(hay[i - 1])
+            let right: bool = i + size == n or not is_word_byte(hay[i + size])
+            if left and right {
+                return true
+            }
+        }
+        i = i + 1
+    }
+    return false
+}
+
+function any_alternative(text: string, alternatives: string) -> bool {
+    let p: ptr<u8> = alternatives as ptr<u8>
+    let n: i32 = strlen(alternatives) as i32
+    let mut start: i32 = 0
+    let mut i: i32 = 0
+    while i <= n {
+        if i == n or p[i] == 124 {
+            if segment_in_text(text, alternatives, start, i) {
+                return true
+            }
+            start = i + 1
+        }
+        i = i + 1
+    }
+    return false
+}
+
+function entry(text: string, id: string, topicWords: string, askingWords: string,
+               avoidWords: string, bias: i32, reply: string) -> KnowledgeHit {
+    if not any_alternative(text, topicWords) {
+        return KnowledgeHit { reply: "", module: "", entry: "", score: 0 }
+    }
+    if not any_alternative(text, askingWords) {
+        return KnowledgeHit { reply: "", module: "", entry: "", score: 0 }
+    }
+    if any_alternative(text, avoidWords) {
+        return KnowledgeHit { reply: "", module: "", entry: "", score: 0 }
+    }
+    return KnowledgeHit {
+        reply: reply,
+        module: "answers",
+        entry: id,
+        score: 4 + bias
+    }
+}
+
+function prefer_hit(a: KnowledgeHit, b: KnowledgeHit) -> KnowledgeHit {
+    if b.score > a.score {
+        return b
+    }
+    return a
+}
+
+export function knowledge_lookup(clean: string) -> KnowledgeHit {
+    let mut best: KnowledgeHit = KnowledgeHit { reply: "", module: "", entry: "", score: 0 }
+
+    best = prefer_hit(best, entry(
+        clean, "power-hot",
+        "plug|plugs|plug socket|socket|sockets|wall socket|mains|cable|cables|lead|leads|flex|wire|wires|wiring|extension lead|fuse|fuses|dimmer|light switch",
+        "hot|warm|warm to the touch|hot to the touch|too hot|very hot|burning|burnt|scorched|scorch|smells of burning|smell of burning|smells like burning|smells of hot plastic|smoking|smoke|sparks|sparking|buzzing|buzzes|melting|melted|overheating",
+        "temperature|degrees|what temperature|wool|shrink|shrunk|stain|stains|how do i|how to|wash my clothes|load|sort|lights|darks|wash at|cheaper|soap|detergent|tooth|teeth|gum|gums|dentist|mouth|extraction|wisdom|filling|dentures|dry socket|bleeding|blood|clot|ache",
+        2,
+        "A plug, socket or cable that is hot, buzzing, scorched or smells of burning is not safe to keep using: unplug it at the wall, or switch that circuit off, and leave it off. Warm to the touch is normal for a charger; too hot to hold, crackling, brown marks, a fishy smell of hot plastic or a fuse that keeps tripping is not, and that plug or socket needs replacing by an electrician before it is used again. Never open a socket yourself, and do not just change the fuse and carry on."
+    ))
+
+    best = prefer_hit(best, entry(
+        clean, "desk-screen-height",
+        "screen|monitor|stand|riser|raiser|laptop stand|laptop riser|laptop raiser|monitor stand|monitor riser|screen stand|screen riser|raise my screen|raise the screen|screen height|screen is low|screen too low|screen quite low|screen is quite low|laptop on books|laptop on a box|screen at eye level",
+        "should i|worth|worth it|get|buy|need|any good|help|good idea|does it help|is it better|which|stand|riser|raiser|height|low|too low|quite low|hurts|hurting|aching|aching away",
+        "battery|charger|crash|won't turn on|wont turn on|bulging|overheating|fan|hard drive|ssd|ram|memory upgrade|spec|specs|new laptop|recommend a laptop|standing desk|standing desks|sit stand|sit-stand|sit to stand|walking pad|treadmill desk|desk you stand at|cracked|crack|tv|telly|phone|broken|flickering|flicker|bigger|larger|4k|resolution|frozen|black screen|second monitor|second screen|two screens|two monitors|dual monitor|dual screen|dual monitors|extra screen|another monitor|another screen|third screen",
+        4,
+        "Yes, if your screen is below eye level: a stand or a pile of books brings the top of the screen to eye level, an external keyboard and mouse go at elbow height, and that is what stops the neck craning down all day. A laptop alone is always too low for long sessions, so the cheap version - box under the laptop, separate keyboard - does most of the job; buy the stand if you want it to look tidy or to swing up and down."
+    ))
+
+    best = prefer_hit(best, entry(
+        clean, "parking-on-the-pavement",
+        "park on the pavement|parking on the pavement|pavement|pavements|park on the verge|parking on the verge|verge|grass verge|footway|footpaths|kerb|curb|dropped kerb",
+        "legal|illegal|allowed|allow|against the law|law|permitted|ticket|fined|fine|penalty|can i|is it|is that|am i|park|parked|parking|ok|okay",
+        "trip|tripped|tripping|fell|fell over|slipped|slippy|icy|ice|uneven|pothole|potholes|cracked|damaged|injur|injured|claim|compensation|wheelchair access|pushed|buggy|litter|dog mess|graffiti|fixed|repair",
+        0,
+        "Parking on the pavement is an offence right across London and in Scotland, and elsewhere only where a traffic order covers that street - so the signs and lines on it, and the council's own parking page, are what decide your road, and that is where to check rather than the country as a whole. Where it is allowed you must still leave the pavement clear enough for a wheelchair or a pushchair, and blocking a dropped kerb blocks someone's drive. A ticket for it is a penalty charge notice, argued in the council's own appeal rather than in a court."
+    ))
+
+    return best
+}
