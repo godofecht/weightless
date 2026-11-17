@@ -218,7 +218,9 @@ function observe(text: string, memory: Memory) -> Memory {
         start = start + 11
     } else {
         start = index_of(lower, "i'm ")
-        if start != 0 {
+        if start != 0 and not (start == 4 and
+            (index_of(lower, "hi, i'm ") == 0 or index_of(lower, "hey i'm ") == 0)) and
+            not (start == 7 and index_of(lower, "hello, i'm ") == 0) {
             start = -1
         }
         if start >= 0 {
