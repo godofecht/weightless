@@ -394,7 +394,7 @@ function choose(candidates: CandidateSet, previous: Memory, observed: Memory) ->
     return winner
 }
 
-function turn(text: string, state: ptr<Memory>) -> Proposal {
+function turn_with_candidate_trace(text: string, state: ptr<Memory>, traceCandidates: bool) -> Proposal {
     let previous: Memory = state[0]
     let observed: Memory = observe(text, previous)
     let clean: string = lower_ascii(trimmed(text))
@@ -404,9 +404,19 @@ function turn(text: string, state: ptr<Memory>) -> Proposal {
     let _n: bool = candidate_set_add(&candidates, name_reply(text, clean, observed))
     let _r: bool = candidate_set_add(&candidates, recall_reply(clean, observed))
     let winner: Proposal = choose(candidates, previous, observed)
+    if traceCandidates {
+        for i in 0 to candidates.count {
+            let candidate: Proposal = candidates.values[i]
+            println("WEIGHTLESS_CANDIDATE\t" + candidate.module + "\t" + candidate.reply)
+        }
+    }
     candidate_set_release(&candidates)
     state[0] = after_turn(text, winner, previous)
     return winner
+}
+
+function turn(text: string, state: ptr<Memory>) -> Proposal {
+    return turn_with_candidate_trace(text, state, false)
 }
 
 function read_line() -> InputLine {
@@ -643,7 +653,7 @@ function run_self_tests() -> i32 {
 
 function show_help() {
     println("Weightless: a rule-based chatbot in Flow")
-    println("Usage: weightless [-p TEXT] [-i] [-v] [-s N] [--trace] [--knowledge-stats] [--self-test]")
+    println("Usage: weightless [-p TEXT] [-i] [-v] [-s N] [--trace] [--trace-candidates] [--knowledge-stats] [--self-test]")
     println("Commands in interactive mode: /help /reset /exit")
 }
 
@@ -653,6 +663,7 @@ function main() -> i32 {
     let mut interactiveFlag: bool = false
     let mut verbose: bool = false
     let mut trace: bool = false
+    let mut traceCandidates: bool = false
     let mut i: i32 = 1
     while i < proc_argc() {
         let arg: string = proc_argv(i)
@@ -670,6 +681,9 @@ function main() -> i32 {
             verbose = true
         } elif same(arg, "--trace") {
             trace = true
+        } elif same(arg, "--trace-candidates") {
+            trace = true
+            traceCandidates = true
         } elif same(arg, "-s") or same(arg, "--seed") {
             if i + 1 >= proc_argc() {
                 println("Missing seed")
@@ -702,7 +716,7 @@ function main() -> i32 {
         println("Type /help for commands, /reset to forget, /exit to quit.")
     }
     if hasPrompt {
-        let result: Proposal = turn(prompt, &memory)
+        let result: Proposal = turn_with_candidate_trace(prompt, &memory, traceCandidates)
         if trace {
             println("WEIGHTLESS_RESULT\t" + result.module + "\t" + result.reply)
         } elif interactive {
@@ -753,7 +767,7 @@ function main() -> i32 {
                 continue
             }
         }
-        let result: Proposal = turn(line.text, &memory)
+        let result: Proposal = turn_with_candidate_trace(line.text, &memory, traceCandidates)
         if trace {
             println("WEIGHTLESS_RESULT\t" + result.module + "\t" + result.reply)
         } elif interactive {
