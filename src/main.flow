@@ -764,6 +764,26 @@ function run_self_tests() -> i32 {
     release_candidate_transcripts(isolatedCandidates, candidateMemory)
     candidate_set_release(&isolatedCandidates)
     release_history(candidateMemory)
+    let mut longTranscript: Memory = fresh_memory()
+    for i in 0 to 40 {
+        let _historyTurn: Proposal = turn("hello", &longTranscript)
+    }
+    if longTranscript.recentCount != 40 or longTranscript.recentCapacity < 40 {
+        println("FAIL: transcript growth must preserve every turn")
+        return 79
+    }
+    let mut copiedTranscript: Memory = isolate_winning_transcript(longTranscript)
+    if copiedTranscript.recent == longTranscript.recent or copiedTranscript.recentCount != 40 {
+        println("FAIL: grown transcript must copy into independent storage")
+        return 80
+    }
+    copiedTranscript.recent[39] = TurnRecord { user: "altered", bot: "altered", module: "altered" }
+    if not same(longTranscript.recent[39].user, "hello") {
+        println("FAIL: grown transcript snapshot must isolate tail mutations")
+        return 81
+    }
+    free(copiedTranscript.recent as ptr<void>)
+    release_history(longTranscript)
     let mut memory: Memory = fresh_memory()
     let a: Proposal = turn("hi, i'm Sam", &memory)
     if not same(a.reply, "Nice to meet you, Sam. What can I help with?") {
@@ -1318,7 +1338,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 78 Flow runtime regression scenarios")
+    println("PASS: 81 Flow runtime regression scenarios")
     return 0
 }
 
