@@ -637,6 +637,24 @@ function collect_responses(text: string, reading: LineReading, previous: Memory,
     return candidates
 }
 
+function isolate_winning_transcript(memory: Memory) -> Memory {
+    if memory.recent == null or memory.recentCount == 0 {
+        return memory
+    }
+    let bytes: i64 = (memory.recentCount as i64) * sizeof<TurnRecord>()
+    let copied: ptr<TurnRecord> = realloc(null, bytes) as ptr<TurnRecord>
+    if copied == null {
+        return memory
+    }
+    for i in 0 to memory.recentCount {
+        copied[i] = memory.recent[i]
+    }
+    let mut isolated: Memory = memory
+    isolated.recent = copied
+    isolated.recentCapacity = memory.recentCount
+    return isolated
+}
+
 function turn_with_candidate_trace(text: string, state: ptr<Memory>, traceCandidates: bool) -> Proposal {
     let previous: Memory = state[0]
     let reading: LineReading = understand_line(text, previous.topic)
@@ -650,8 +668,13 @@ function turn_with_candidate_trace(text: string, state: ptr<Memory>, traceCandid
         }
     }
     candidate_set_release(&candidates)
-    state[0] = run_after_hooks(text, winner, previous)
-    return winner
+    let mut committed: Proposal = winner
+    committed.memory = isolate_winning_transcript(winner.memory)
+    if committed.memory.recent != previous.recent and previous.recent != null {
+        free(previous.recent as ptr<void>)
+    }
+    state[0] = run_after_hooks(text, committed, previous)
+    return committed
 }
 
 function turn(text: string, state: ptr<Memory>) -> Proposal {
@@ -691,6 +714,20 @@ function run_self_tests() -> i32 {
         return 72
     }
     candidate_set_release(&collectedEmptyCandidates)
+    let mut isolationSource: Memory = fresh_memory()
+    let _isolationTurn: Proposal = turn("hello", &isolationSource)
+    let mut isolationCopy: Memory = isolate_winning_transcript(isolationSource)
+    if isolationCopy.recent == isolationSource.recent or isolationCopy.recentCount != isolationSource.recentCount {
+        println("FAIL: winning transcript must have independent storage")
+        return 75
+    }
+    isolationCopy.recent[0] = TurnRecord { user: "changed", bot: "changed", module: "changed" }
+    if not same(isolationSource.recent[0].user, "hello") {
+        println("FAIL: winning transcript copy must not mutate previous history")
+        return 76
+    }
+    free(isolationCopy.recent as ptr<void>)
+    release_history(isolationSource)
     let mut memory: Memory = fresh_memory()
     let a: Proposal = turn("hi, i'm Sam", &memory)
     if not same(a.reply, "Nice to meet you, Sam. What can I help with?") {
@@ -1245,7 +1282,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 74 Flow runtime regression scenarios")
+    println("PASS: 76 Flow runtime regression scenarios")
     return 0
 }
 
