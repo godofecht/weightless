@@ -7,6 +7,8 @@ extern {
     function getchar() -> i32
     function fflush(stream: ptr<void>) -> i32
     function isatty(fd: i32) -> i32
+    function realloc(p: ptr<void>, size: i64) -> ptr<void>
+    function free(p: ptr<void>) -> void
 }
 
 struct TurnRecord {
@@ -21,8 +23,9 @@ struct Memory {
     lastUser: string,
     lastReply: string,
     turns: i32,
-    recent: array<TurnRecord, 32>,
-    recentCount: i32
+    recent: ptr<TurnRecord>,
+    recentCount: i32,
+    recentCapacity: i32
 }
 
 struct Proposal {
@@ -44,8 +47,9 @@ function fresh_memory() -> Memory {
         lastUser: "",
         lastReply: "",
         turns: 0,
-        recent: [],
-        recentCount: 0
+        recent: null,
+        recentCount: 0,
+        recentCapacity: 0
     }
 }
 
@@ -268,27 +272,51 @@ function recall_reply(lower: string, memory: Memory) -> Proposal {
 }
 
 function recent_turn(memory: Memory, stepsBack: i32) -> TurnRecord {
-    if stepsBack < 1 or stepsBack > memory.recentCount {
+    if stepsBack < 1 or stepsBack > memory.recentCount or memory.recent == null {
         return TurnRecord { user: "", bot: "", module: "" }
     }
-    let position: i32 = (memory.turns - stepsBack) % 32
-    return memory.recent[position]
+    return memory.recent[memory.recentCount - stepsBack]
+}
+
+function append_turn(memory: Memory, record: TurnRecord) -> Memory {
+    let mut after: Memory = memory
+    if after.recentCount >= after.recentCapacity {
+        let mut capacity: i32 = 16
+        if after.recentCapacity > 0 {
+            if after.recentCapacity > 1073741823 {
+                return after
+            }
+            capacity = after.recentCapacity * 2
+        }
+        let bytes: i64 = (capacity as i64) * sizeof<TurnRecord>()
+        let grown: ptr<TurnRecord> = realloc(after.recent as ptr<void>, bytes) as ptr<TurnRecord>
+        if grown == null {
+            return after
+        }
+        after.recent = grown
+        after.recentCapacity = capacity
+    }
+    after.recent[after.recentCount] = record
+    after.recentCount = after.recentCount + 1
+    return after
+}
+
+function release_history(memory: Memory) {
+    if memory.recent != null {
+        free(memory.recent as ptr<void>)
+    }
 }
 
 function after_turn(text: string, winning: Proposal, previous: Memory) -> Memory {
     let mut after: Memory = winning.memory
     after.lastUser = text
     after.lastReply = winning.reply
-    let slot: i32 = previous.turns % 32
-    after.recent[slot] = TurnRecord {
+    after = append_turn(after, TurnRecord {
         user: text,
         bot: winning.reply,
         module: winning.module
-    }
+    })
     after.turns = previous.turns + 1
-    if after.recentCount < 32 {
-        after.recentCount = after.recentCount + 1
-    }
     return after
 }
 
@@ -393,13 +421,14 @@ function run_self_tests() -> i32 {
     for j in 0 to 36 {
         let _ignored: Proposal = turn("hello", &longMemory)
     }
-    if longMemory.recentCount != 32 or longMemory.turns != 36 {
-        println("FAIL: bounded transcript count")
+    if longMemory.recentCount != 36 or longMemory.turns != 36 or longMemory.recentCapacity < 36 {
+        println("FAIL: dynamically growing transcript count")
         return 11
     }
     let newest: TurnRecord = recent_turn(longMemory, 1)
-    if not same(newest.user, "hello") or not same(newest.module, "greeting") {
-        println("FAIL: transcript ring retrieval")
+    let oldest: TurnRecord = recent_turn(longMemory, 36)
+    if not same(newest.user, "hello") or not same(newest.module, "greeting") or not same(oldest.user, "hello") {
+        println("FAIL: full transcript retrieval")
         return 12
     }
     let mut emptyList: array<Proposal, 4> = [
@@ -413,7 +442,21 @@ function run_self_tests() -> i32 {
         println("FAIL: candidate arbitration")
         return 13
     }
-    println("PASS: 12 Flow runtime regression scenarios")
+    for k in 0 to 100 {
+        let _ignoredMore: Proposal = turn("hello", &longMemory)
+    }
+    if longMemory.recentCount != 136 or longMemory.turns != 136 {
+        println("FAIL: history growth past 128")
+        return 14
+    }
+    let first: TurnRecord = recent_turn(longMemory, 136)
+    if not same(first.user, "hello") or not same(first.module, "greeting") {
+        println("FAIL: earliest transcript preserved")
+        return 15
+    }
+    release_history(memory)
+    release_history(longMemory)
+    println("PASS: 14 Flow runtime regression scenarios")
     return 0
 }
 
@@ -487,6 +530,7 @@ function main() -> i32 {
             println("[module: " + result.module + "]")
         }
         if not interactive {
+            release_history(memory)
             return 0
         }
     }
@@ -501,6 +545,7 @@ function main() -> i32 {
         }
         let cmd: string = lower_ascii(trimmed(line.text))
         if trace and same(cmd, "/reset") {
+            release_history(memory)
             memory = fresh_memory()
             continue
         }
@@ -509,6 +554,7 @@ function main() -> i32 {
                 break
             }
             if same(cmd, "/reset") {
+                release_history(memory)
                 memory = fresh_memory()
                 println("New conversation.")
                 continue
@@ -533,5 +579,6 @@ function main() -> i32 {
             println("[module: " + result.module + "]")
         }
     }
+    release_history(memory)
     return 0
 }
