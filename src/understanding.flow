@@ -107,18 +107,18 @@ function under_explicit_topic(clean: string) -> string {
        under_contains(clean, "descale") {
         return "kettle"
     }
-    if under_contains(clean, "train") or under_contains(clean, "railway") {
+    if under_has_word(clean, "train") or under_has_word(clean, "railway") {
         return "transport"
     }
     if under_contains(clean, "microwave") or under_contains(clean, "pasta") or
        under_contains(clean, "vegetables") {
         return "cooking"
     }
-    if under_contains(clean, "wall socket") or under_contains(clean, "plug") or
+    if under_contains(clean, "wall socket") or under_has_word(clean, "plug") or
        under_contains(clean, "power cable") {
         return "electricity"
     }
-    if under_contains(clean, "laptop stand") or under_contains(clean, "monitor") {
+    if under_contains(clean, "laptop stand") or under_has_word(clean, "monitor") {
         return "technology"
     }
     return ""
