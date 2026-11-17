@@ -796,7 +796,7 @@ function run_self_tests() -> i32 {
         println("FAIL: candidate mutation must not change committed transcript")
         return 78
     }
-    release_candidate_transcripts(isolatedCandidates, candidateMemory)
+    release_candidate_transcripts(isolatedCandidates, candidateMemory, null)
     candidate_set_release(&isolatedCandidates)
     release_history(candidateMemory)
     let mut longTranscript: Memory = fresh_memory()
