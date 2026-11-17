@@ -79,6 +79,29 @@ function under_starts_word(text: string, word: string) -> bool {
     return under_space(byte) or byte == 44 or byte == 33 or byte == 46 or byte == 63
 }
 
+function under_has_word(text: string, word: string) -> bool {
+    let n: i32 = strlen(text) as i32
+    let m: i32 = strlen(word) as i32
+    if m == 0 or n < m {
+        return false
+    }
+    let bytes: ptr<u8> = text as ptr<u8>
+    let needle: ptr<u8> = word as ptr<u8>
+    let mut i: i32 = 0
+    while i <= n - m {
+        let left: bool = i == 0 or not ((bytes[i - 1] >= 97 and bytes[i - 1] <= 122) or
+                                         (bytes[i - 1] >= 48 and bytes[i - 1] <= 57))
+        let rightAt: i32 = i + m
+        let right: bool = rightAt == n or not ((bytes[rightAt] >= 97 and bytes[rightAt] <= 122) or
+                                               (bytes[rightAt] >= 48 and bytes[rightAt] <= 57))
+        if left and right and strncmp((bytes + i) as string, needle as string, m as i64) == 0 {
+            return true
+        }
+        i = i + 1
+    }
+    return false
+}
+
 function under_explicit_topic(clean: string) -> string {
     if under_contains(clean, "kettle") or under_contains(clean, "limescale") or
        under_contains(clean, "descale") {
@@ -193,7 +216,7 @@ export function understand_line(raw: string, previousTopic: string) -> LineReadi
     }
 
     let explicit: string = under_explicit_topic(clean)
-    let pointsBack: bool = under_contains(clean, "that") or
+    let pointsBack: bool = under_has_word(clean, "that") or
                            under_contains(clean, "what about") or
                            under_starts_word(clean, "and") or
                            under_starts_word(clean, "what next") or
