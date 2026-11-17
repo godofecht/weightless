@@ -27,6 +27,10 @@ for raw in sys.stdin:
     print(json.dumps({
         "reply": " ".join(str(result["reply"]).split()),
         "module": result.get("module") or "",
+        "candidates": [
+            {"module": c["module"], "reply": " ".join(c["reply"].split())}
+            for c in result["candidates"]
+        ],
     }, ensure_ascii=False), flush=True)
 """
 
@@ -87,17 +91,30 @@ def main() -> int:
     reference = [json.loads(line) for line in reference_out.splitlines() if line.strip()]
 
     weightless_out = run_checked(
-        [str(flow / "flow"), "run", str(weightless / "src" / "main.flow"), "--", "--trace"],
+        [str(flow / "flow"), "run", str(weightless / "src" / "main.flow"), "--", "--trace-candidates"],
         flow,
         input_text,
     )
     weightless_results = []
+    pending_candidates = []
     for line in weightless_out.splitlines():
-        if line.startswith("WEIGHTLESS_RESULT\t"):
+        if line.startswith("WEIGHTLESS_CANDIDATE\t"):
+            parts = line.split("\t", 2)
+            if len(parts) != 3:
+                raise ValueError(f"malformed candidate trace: {line}")
+            pending_candidates.append({"module": parts[1], "reply": parts[2].strip()})
+        elif line.startswith("WEIGHTLESS_RESULT\t"):
             parts = line.split("\t", 2)
             if len(parts) != 3:
                 raise ValueError(f"malformed trace: {line}")
-            weightless_results.append({"module": parts[1], "reply": parts[2].strip()})
+            weightless_results.append({
+                "module": parts[1],
+                "reply": parts[2].strip(),
+                "candidates": pending_candidates,
+            })
+            pending_candidates = []
+    if pending_candidates:
+        raise ValueError("unterminated candidate set at end of Weightless trace")
 
     if len(reference) != len(labels) or len(weightless_results) != len(labels):
         raise RuntimeError(
@@ -108,6 +125,10 @@ def main() -> int:
     total = len(labels)
     exact = 0
     module_matches = 0
+    candidate_module_overlap = 0
+    candidate_reply_overlap = 0
+    reference_candidate_total = 0
+    weightless_candidate_total = 0
     examples = []
     for i, session in enumerate(labels):
         a = reference[i]
@@ -118,6 +139,17 @@ def main() -> int:
         module_equal = a["module"] == b["module"]
         exact += int(reply_equal)
         module_matches += int(module_equal)
+        reference_modules = {c["module"] for c in a["candidates"]}
+        reference_pairs = {(c["module"], c["reply"]) for c in a["candidates"]}
+        weightless_modules = {c["module"] for c in b["candidates"]}
+        weightless_pairs = {
+            (c["module"], " ".join(c["reply"].split()))
+            for c in b["candidates"]
+        }
+        candidate_module_overlap += len(reference_modules & weightless_modules)
+        candidate_reply_overlap += len(reference_pairs & weightless_pairs)
+        reference_candidate_total += len(a["candidates"])
+        weightless_candidate_total += len(b["candidates"])
         examples.append({
             "session": session,
             "input": next(
@@ -136,6 +168,10 @@ def main() -> int:
         "total_turns": total,
         "exact_reply_matches": exact,
         "exact_module_matches": module_matches,
+        "candidate_module_overlap": candidate_module_overlap,
+        "candidate_reply_overlap": candidate_reply_overlap,
+        "reference_candidate_total": reference_candidate_total,
+        "weightless_candidate_total": weightless_candidate_total,
         "reply_parity": round(exact / total, 4) if total else 0,
         "module_parity": round(module_matches / total, 4) if total else 0,
         "comparisons": examples,
@@ -146,7 +182,9 @@ def main() -> int:
         f"PyBot differential: {exact}/{total} exact replies "
         f"({100 * report['reply_parity']:.2f}%), "
         f"{module_matches}/{total} module matches "
-        f"({100 * report['module_parity']:.2f}%)."
+        f"({100 * report['module_parity']:.2f}%). "
+        f"{candidate_reply_overlap}/{reference_candidate_total} reference candidates "
+        f"also proposed exactly by Weightless."
     )
     print(f"Report: {args.output}")
     return 0

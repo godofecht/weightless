@@ -41,6 +41,12 @@ struct InputLine {
     eof: bool
 }
 
+struct CandidateSet {
+    values: ptr<Proposal>,
+    count: i32,
+    capacity: i32
+}
+
 function fresh_memory() -> Memory {
     return Memory {
         name: "",
@@ -165,7 +171,9 @@ function observe(text: string, memory: Memory) -> Memory {
     let mut next: Memory = memory
     let lower: string = lower_ascii(text)
     let mut start: i32 = index_of(lower, "my name is ")
+    let mut explicitName: bool = false
     if start >= 0 {
+        explicitName = true
         start = start + 11
     } else {
         start = index_of(lower, "i'm ")
@@ -181,7 +189,10 @@ function observe(text: string, memory: Memory) -> Memory {
     if start >= 0 {
         let name: string = extract_word(text, start)
         if not same(name, "") {
-            next.name = name
+            let initial: u8 = (name as ptr<u8>)[0]
+            if explicitName or (initial >= 65 and initial <= 90) {
+                next.name = name
+            }
         }
     }
     if contains(lower, "kettle") or contains(lower, "limescale") or contains(lower, "descale") {
@@ -192,6 +203,42 @@ function observe(text: string, memory: Memory) -> Memory {
 
 function proposal(reply: string, module: string, priority: i32, memory: Memory) -> Proposal {
     return Proposal { reply: reply, module: module, priority: priority, memory: memory }
+}
+
+function candidate_set_new() -> CandidateSet {
+    return CandidateSet { values: null, count: 0, capacity: 0 }
+}
+
+function candidate_set_add(set: ptr<CandidateSet>, value: Proposal) -> bool {
+    if same(value.reply, "") {
+        return true
+    }
+    if set[0].count >= set[0].capacity {
+        let mut capacity: i32 = 8
+        if set[0].capacity > 0 {
+            if set[0].capacity > 1073741823 {
+                return false
+            }
+            capacity = set[0].capacity * 2
+        }
+        let allocation: ptr<Proposal> = realloc(set[0].values as ptr<void>,
+            (capacity as i64) * sizeof<Proposal>()) as ptr<Proposal>
+        if allocation == null {
+            return false
+        }
+        set[0].values = allocation
+        set[0].capacity = capacity
+    }
+    set[0].values[set[0].count] = value
+    set[0].count = set[0].count + 1
+    return true
+}
+
+function candidate_set_release(set: ptr<CandidateSet>) {
+    if set[0].values != null {
+        free(set[0].values as ptr<void>)
+    }
+    set[0] = candidate_set_new()
 }
 
 function prefer(current: Proposal, challenger: Proposal, memory: Memory) -> Proposal {
@@ -312,8 +359,27 @@ function release_history(memory: Memory) {
     }
 }
 
+function after_correction(text: string, memory: Memory) -> Memory {
+    let mut after: Memory = memory
+    let clean: string = lower_ascii(trimmed(text))
+    let mut at: i32 = index_of(clean, "call me ")
+    if at == 0 {
+        at = at + 8
+    } elif index_of(clean, "no, call me ") == 0 {
+        at = 12
+    } else {
+        return after
+    }
+    let name: string = extract_word(text, at)
+    if not same(name, "") {
+        after.name = name
+    }
+    return after
+}
+
 function after_turn(text: string, winning: Proposal, previous: Memory) -> Memory {
     let mut after: Memory = winning.memory
+    after = after_correction(text, after)
     after.lastUser = text
     after.lastReply = winning.reply
     after = append_turn(after, TurnRecord {
@@ -325,27 +391,37 @@ function after_turn(text: string, winning: Proposal, previous: Memory) -> Memory
     return after
 }
 
-function choose(candidates: array<Proposal, 4>, previous: Memory, observed: Memory) -> Proposal {
+function choose(candidates: CandidateSet, previous: Memory, observed: Memory) -> Proposal {
     let mut winner: Proposal = proposal("Hello!", "fallback", -1000, observed)
-    for i in 0 to 4 {
-        winner = prefer(winner, candidates[i], previous)
+    for i in 0 to candidates.count {
+        winner = prefer(winner, candidates.values[i], previous)
     }
     return winner
 }
 
-function turn(text: string, state: ptr<Memory>) -> Proposal {
+function turn_with_candidate_trace(text: string, state: ptr<Memory>, traceCandidates: bool) -> Proposal {
     let previous: Memory = state[0]
     let observed: Memory = observe(text, previous)
     let clean: string = lower_ascii(trimmed(text))
-    let candidates: array<Proposal, 4> = [
-        greeting_reply(text, clean, observed, previous),
-        knowledge_reply(text, clean, observed),
-        name_reply(text, clean, observed),
-        recall_reply(clean, observed)
-    ]
+    let mut candidates: CandidateSet = candidate_set_new()
+    let _g: bool = candidate_set_add(&candidates, greeting_reply(text, clean, observed, previous))
+    let _k: bool = candidate_set_add(&candidates, knowledge_reply(text, clean, observed))
+    let _n: bool = candidate_set_add(&candidates, name_reply(text, clean, observed))
+    let _r: bool = candidate_set_add(&candidates, recall_reply(clean, observed))
     let winner: Proposal = choose(candidates, previous, observed)
+    if traceCandidates {
+        for i in 0 to candidates.count {
+            let candidate: Proposal = candidates.values[i]
+            println("WEIGHTLESS_CANDIDATE\t" + candidate.module + "\t" + candidate.reply)
+        }
+    }
+    candidate_set_release(&candidates)
     state[0] = after_turn(text, winner, previous)
     return winner
+}
+
+function turn(text: string, state: ptr<Memory>) -> Proposal {
+    return turn_with_candidate_trace(text, state, false)
 }
 
 function read_line() -> InputLine {
@@ -397,6 +473,7 @@ function run_self_tests() -> i32 {
         println("FAIL: turn history count")
         return 5
     }
+    release_history(memory)
     memory = fresh_memory()
     let e: Proposal = turn("what's my name?", &memory)
     if not same(e.reply, "You haven't told me your name yet.") {
@@ -436,17 +513,17 @@ function run_self_tests() -> i32 {
         println("FAIL: full transcript retrieval")
         return 12
     }
-    let mut emptyList: array<Proposal, 4> = [
-        proposal("", "none", 0, longMemory),
-        proposal("low", "low", 5, longMemory),
-        proposal("high", "high", 50, longMemory),
-        proposal("medium", "medium", 10, longMemory)
-    ]
-    let picked: Proposal = choose(emptyList, longMemory, longMemory)
-    if not same(picked.module, "high") {
+    let mut candidateTest: CandidateSet = candidate_set_new()
+    let _empty: bool = candidate_set_add(&candidateTest, proposal("", "none", 0, longMemory))
+    let _low: bool = candidate_set_add(&candidateTest, proposal("low", "low", 5, longMemory))
+    let _high: bool = candidate_set_add(&candidateTest, proposal("high", "high", 50, longMemory))
+    let _medium: bool = candidate_set_add(&candidateTest, proposal("medium", "medium", 10, longMemory))
+    let picked: Proposal = choose(candidateTest, longMemory, longMemory)
+    if not same(picked.module, "high") or candidateTest.count != 3 {
         println("FAIL: candidate arbitration")
         return 13
     }
+    candidate_set_release(&candidateTest)
     for k in 0 to 100 {
         let _ignoredMore: Proposal = turn("hello", &longMemory)
     }
@@ -524,17 +601,79 @@ function run_self_tests() -> i32 {
         println("FAIL: corpus secondary school kit")
         return 28
     }
+    let mut expanded: CandidateSet = candidate_set_new()
+    let mut shared: Memory = fresh_memory()
+    shared.topic = "original"
+    for i in 0 to 40 {
+        let mut local: Memory = shared
+        local.topic = "loser"
+        let _added: bool = candidate_set_add(&expanded, proposal("losing", "candidate", i, local))
+        if not _added {
+            println("FAIL: dynamic candidate set allocation")
+            return 29
+        }
+    }
+    let mut winnerMemory: Memory = shared
+    winnerMemory.topic = "committed"
+    let _winnerAdded: bool = candidate_set_add(&expanded,
+        proposal("winning", "last", 100, winnerMemory))
+    let pickedMany: Proposal = choose(expanded, shared, shared)
+    if expanded.count != 41 or expanded.capacity < 41 or
+       not same(pickedMany.module, "last") or
+       not same(pickedMany.memory.topic, "committed") or
+       not same(shared.topic, "original") {
+        println("FAIL: isolated candidate memory and arbitrary candidate count")
+        return 30
+    }
+    let updated: Memory = after_turn("hello", pickedMany, shared)
+    if not same(updated.topic, "committed") or not same(shared.topic, "original") or
+       updated.recentCount != 1 or not same(updated.lastReply, "winning") {
+        println("FAIL: winner-only memory commit")
+        return 31
+    }
+    candidate_set_release(&expanded)
+    let mut corrected: Memory = fresh_memory()
+    let _init: Proposal = turn("hi, i'm Sam", &corrected)
+    let _call: Proposal = turn("no, call me Alex", &corrected)
+    let remembered: Proposal = turn("what's my name?", &corrected)
+    if not same(remembered.reply, "You're Alex.") {
+        println("FAIL: post-choice correction hook")
+        return 32
+    }
+    let mut unidentified: Memory = fresh_memory()
+    let _mood: Proposal = turn("i'm hungry", &unidentified)
+    let unknown: Proposal = turn("what's my name?", &unidentified)
+    if not same(unknown.reply, "You haven't told me your name yet.") {
+        println("FAIL: ordinary adjective incorrectly stored as name")
+        return 34
+    }
+    let _explicitLower: Proposal = turn("my name is alex", &unidentified)
+    let explicitRecall: Proposal = turn("what's my name?", &unidentified)
+    if not same(explicitRecall.reply, "You're alex.") {
+        println("FAIL: explicit lowercase name introduction")
+        return 35
+    }
+    let mut emptyCandidates: CandidateSet = candidate_set_new()
+    let emptyPicked: Proposal = choose(emptyCandidates, corrected, corrected)
+    if not same(emptyPicked.module, "fallback") or not same(emptyPicked.reply, "Hello!") {
+        println("FAIL: empty candidate set fallback")
+        return 33
+    }
+    candidate_set_release(&emptyCandidates)
+    release_history(unidentified)
+    release_history(corrected)
+    release_history(updated)
     release_history(domainMemory)
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 27 Flow runtime regression scenarios")
+    println("PASS: 33 Flow runtime regression scenarios")
     return 0
 }
 
 function show_help() {
     println("Weightless: a rule-based chatbot in Flow")
-    println("Usage: weightless [-p TEXT] [-i] [-v] [-s N] [--trace] [--knowledge-stats] [--self-test]")
+    println("Usage: weightless [-p TEXT] [-i] [-v] [-s N] [--trace] [--trace-candidates] [--knowledge-stats] [--self-test]")
     println("Commands in interactive mode: /help /reset /exit")
 }
 
@@ -544,6 +683,7 @@ function main() -> i32 {
     let mut interactiveFlag: bool = false
     let mut verbose: bool = false
     let mut trace: bool = false
+    let mut traceCandidates: bool = false
     let mut i: i32 = 1
     while i < proc_argc() {
         let arg: string = proc_argv(i)
@@ -561,6 +701,9 @@ function main() -> i32 {
             verbose = true
         } elif same(arg, "--trace") {
             trace = true
+        } elif same(arg, "--trace-candidates") {
+            trace = true
+            traceCandidates = true
         } elif same(arg, "-s") or same(arg, "--seed") {
             if i + 1 >= proc_argc() {
                 println("Missing seed")
@@ -593,7 +736,7 @@ function main() -> i32 {
         println("Type /help for commands, /reset to forget, /exit to quit.")
     }
     if hasPrompt {
-        let result: Proposal = turn(prompt, &memory)
+        let result: Proposal = turn_with_candidate_trace(prompt, &memory, traceCandidates)
         if trace {
             println("WEIGHTLESS_RESULT\t" + result.module + "\t" + result.reply)
         } elif interactive {
@@ -644,7 +787,7 @@ function main() -> i32 {
                 continue
             }
         }
-        let result: Proposal = turn(line.text, &memory)
+        let result: Proposal = turn_with_candidate_trace(line.text, &memory, traceCandidates)
         if trace {
             println("WEIGHTLESS_RESULT\t" + result.module + "\t" + result.reply)
         } elif interactive {
