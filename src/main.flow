@@ -947,6 +947,16 @@ function run_self_tests() -> i32 {
         return 55
     }
     release_history(noBotTranscript)
+    let misleadingFollowup: LineReading = understand_line("What is Thatcher?", "kettle")
+    if misleadingFollowup.followup or not same(misleadingFollowup.topic, "") {
+        println("FAIL: embedded 'that' must not inherit previous topic")
+        return 59
+    }
+    let genuineFollowup: LineReading = understand_line("What is that?", "kettle")
+    if not genuineFollowup.followup or not same(genuineFollowup.topic, "kettle") {
+        println("FAIL: standalone anaphoric 'that' must inherit topic")
+        return 60
+    }
     let mut safetyMemory: Memory = fresh_memory()
     safetyMemory.lastReply = "Careful safety response"
     let safetyFirst: Proposal = proposal("Careful safety response", "safety", 9000, safetyMemory)
@@ -1065,7 +1075,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 55 Flow runtime regression scenarios")
+    println("PASS: 57 Flow runtime regression scenarios")
     return 0
 }
 
