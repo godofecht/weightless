@@ -170,6 +170,43 @@ function extract_word(s: string, start: i32) -> string {
     return name
 }
 
+function extract_fact_value(text: string, start: i32, maxWords: i32) -> string {
+    let bytes: ptr<u8> = text as ptr<u8>
+    let total: i32 = strlen(text) as i32
+    let out: ptr<ByteBuf> = bb_new(64)
+    let mut i: i32 = start
+    let mut count: i32 = 0
+    while i < total and count < maxWords {
+        while i < total and whitespace(bytes[i]) {
+            i = i + 1
+        }
+        if i >= total {
+            break
+        }
+        let part: string = extract_word(text, i)
+        if same(part, "") {
+            break
+        }
+        let low: string = lower_ascii(part)
+        if same(low, "and") or same(low, "but") or same(low, "because") or same(low, "so") {
+            break
+        }
+        if count > 0 {
+            bb_putc(out, 32)
+        }
+        let letters: ptr<u8> = part as ptr<u8>
+        let n: i32 = strlen(part) as i32
+        for j in 0 to n {
+            bb_putc(out, letters[j])
+        }
+        count = count + 1
+        i = i + n
+    }
+    let value: string = bb_str(out)
+    bb_free(out)
+    return value
+}
+
 function observe(text: string, memory: Memory) -> Memory {
     let mut next: Memory = memory
     let lower: string = lower_ascii(text)
@@ -219,7 +256,7 @@ function observe(text: string, memory: Memory) -> Memory {
             prefix = "my dad's name is "
         }
         if personStart >= 0 {
-            let otherName: string = extract_word(text, personStart + (strlen(prefix) as i32))
+            let otherName: string = extract_fact_value(text, personStart + (strlen(prefix) as i32), 2)
             next.facts = facts_note(next.facts, owner, "name", otherName, text, next.turns + 1)
         }
 
@@ -230,17 +267,21 @@ function observe(text: string, memory: Memory) -> Memory {
             jobPrefix = "i work as "
         }
         if jobStart >= 0 {
-            let mut job: string = extract_word(text, jobStart + (strlen(jobPrefix) as i32))
-            let article: string = lower_ascii(job)
+            let jobAt: i32 = jobStart + (strlen(jobPrefix) as i32)
+            let first: string = extract_word(text, jobAt)
+            let article: string = lower_ascii(first)
+            let mut job: string = ""
             if same(article, "a") or same(article, "an") {
-                job = extract_word(text, jobStart + (strlen(jobPrefix) as i32) + (strlen(job) as i32) + 1)
+                job = extract_fact_value(text, jobAt + (strlen(first) as i32) + 1, 3)
+            } else {
+                job = extract_fact_value(text, jobAt, 3)
             }
             next.facts = facts_note(next.facts, "self", "job", job, text, next.turns + 1)
         }
         if first_word(lower, "i") {
             let cityStart: i32 = index_of(lower, "i live in ")
             if cityStart >= 0 {
-                let city: string = extract_word(text, cityStart + 10)
+                let city: string = extract_fact_value(text, cityStart + 10, 3)
                 next.facts = facts_note(next.facts, "self", "city", city, text, next.turns + 1)
             }
         }
