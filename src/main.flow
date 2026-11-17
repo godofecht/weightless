@@ -419,7 +419,7 @@ function run_self_tests() -> i32 {
 
 function show_help() {
     println("Weightless: a rule-based chatbot in Flow")
-    println("Usage: weightless [-p TEXT] [-i] [-v] [-s N] [--self-test]")
+    println("Usage: weightless [-p TEXT] [-i] [-v] [-s N] [--trace] [--self-test]")
     println("Commands in interactive mode: /help /reset /exit")
 }
 
@@ -428,6 +428,7 @@ function main() -> i32 {
     let mut prompt: string = ""
     let mut interactiveFlag: bool = false
     let mut verbose: bool = false
+    let mut trace: bool = false
     let mut i: i32 = 1
     while i < proc_argc() {
         let arg: string = proc_argv(i)
@@ -443,6 +444,8 @@ function main() -> i32 {
             interactiveFlag = true
         } elif same(arg, "-v") or same(arg, "--verbose") {
             verbose = true
+        } elif same(arg, "--trace") {
+            trace = true
         } elif same(arg, "-s") or same(arg, "--seed") {
             if i + 1 >= proc_argc() {
                 println("Missing seed")
@@ -472,7 +475,9 @@ function main() -> i32 {
     }
     if hasPrompt {
         let result: Proposal = turn(prompt, &memory)
-        if interactive {
+        if trace {
+            println("WEIGHTLESS_RESULT\t" + result.module + "\t" + result.reply)
+        } elif interactive {
             println("user: " + prompt)
             println("weightless: " + result.reply)
         } else {
@@ -495,6 +500,10 @@ function main() -> i32 {
             break
         }
         let cmd: string = lower_ascii(trimmed(line.text))
+        if trace and same(cmd, "/reset") {
+            memory = fresh_memory()
+            continue
+        }
         if interactive {
             if same(cmd, "/exit") or same(cmd, "/quit") or same(cmd, "/bye") {
                 break
@@ -513,7 +522,9 @@ function main() -> i32 {
             }
         }
         let result: Proposal = turn(line.text, &memory)
-        if interactive {
+        if trace {
+            println("WEIGHTLESS_RESULT\t" + result.module + "\t" + result.reply)
+        } elif interactive {
             println("weightless: " + result.reply)
         } else {
             println(result.reply)
