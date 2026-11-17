@@ -14,8 +14,9 @@ Target backend: Flow's self-hosted C backend
 5. Return a non-empty fallback when no responder matches.
 6. Keep state across piped lines; reset it on `/reset` in interactive mode.
 
-**Current limits:** The Flow port stores only a fixed set of conversation attributes
-and a turn count, not PyBot's complete transcript or deep structured memories.
+**Current limits:** The Flow port stores a fixed set of conversation attributes
+and the 32 most recent structured turns in a bounded in-memory ring. Unlike PyBot,
+it has no general-purpose dictionary memory, persistent journal or full transcript.
 PyBot's arbiter has many additional rules, especially safety precedence, topic
 specificity, and refusal handling. Weightless does not implement those policies yet.
 
@@ -23,10 +24,10 @@ specificity, and refusal handling. Weightless does not implement those policies 
 
 | Upstream | Weightless | Status |
 |---|---|---|
-| `bot/runtime.py` | `src/main.flow` | Partial observable pipeline |
-| `bot/modules/arbiter.py` | `prefer` | Priority and non-repeat tie-break only |
+| `bot/runtime.py` | `src/main.flow` | Partial observable pipeline, four candidate slots, 32-turn ring |
+| `bot/modules/arbiter.py` | `choose`, `prefer` | Four candidate slots, priority and non-repeat tie-break only |
 | `bot/modules/greeting.py` | `greeting_reply` | Tiny deterministic subset |
-| `bot/modules/memory_store.py` | `Memory`, `observe`, `name_reply` | Name recall only |
+| `bot/modules/memory_store.py` | `Memory`, `observe`, `name_reply`, `recall_reply` | Name and latest-turn recall only |
 | `bot/compose/*`, `bot/knowledge/*` | `knowledge_reply` | Three example answer families |
 | `pybot.py` | `main`, `read_line` | Basic CLI; timing and terminal clearing omitted |
 
@@ -52,14 +53,23 @@ The `-s/--seed` argument is accepted for compatibility but has no effect
 until candidate wording is randomized. The `-v` option prints a module tag,
 not PyBot's millisecond timings.
 
-CI checks Flow's native compiler and the representative CLI contracts.
+CI checks Flow's native compiler, twelve runtime regression scenarios and representative CLI contracts.
+A pull-request-only differential job checks 22 fixture turns against upstream PyBot
+at pinned commit `7d63c7fbebb44c7e466e5c8b5c1f341ab767929e`.
+The original Python runtime is used only as the external reference test oracle.
+The JSON report stores both answers, winning modules and exact-match flags;
+mismatches are expected until the port is complete. Do not interpret a
+green diagnostic job as behavioural equivalence. The reference dataset lives in
+`fixtures/differential.json`, the runner in `ci/compare_reference.py`.
 Only passing CI on the target commit establishes successful execution.
 
 ## Next increments
 
-Implement a complete `Candidate` collection with independent memory copies,
-then port the upstream safety precedence and topic inheritance tests.
-Build differential fixtures by running the original PyBot on a fixed corpus
-and recording its `reply`, `module`, and state transitions. Reimplement
-modules one family at a time and guard each new rule with native Flow tests.
+Replace the four-slot candidate array and 32-turn ring with dynamically sized,
+isolated snapshots and an unbounded transcript; implement after-hooks, robust
+fallbacks, and per-module failure isolation. Then port safety precedence,
+topic-specialist arbitration and topic inheritance tests.
+Expand the current differential fixture corpus and record reference memory
+transitions as well as replies and modules. Reimplement source modules one
+family at a time and guard each new rule with native Flow tests.
 The original repository is orders of magnitude larger than this initial slice.
