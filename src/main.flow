@@ -629,20 +629,28 @@ function run_observers(text: string, previous: Memory, reading: LineReading) -> 
 function collect_responses(text: string, reading: LineReading, previous: Memory, observed: Memory) -> CandidateSet {
     let clean: string = reading.clean
     let mut candidates: CandidateSet = candidate_set_new()
-    let _g: bool = candidate_set_add(&candidates, greeting_reply(text, clean, observed, previous, reading))
-    let _k: bool = candidate_set_add(&candidates, knowledge_reply(text, clean, observed))
-    let _n: bool = candidate_set_add(&candidates, name_reply(text, clean, observed))
-    let _r: bool = candidate_set_add(&candidates, recall_reply(clean, observed))
-    let _f: bool = candidate_set_add(&candidates, fact_reply(clean, observed))
+    let _g: bool = candidate_set_add_owned(&candidates, greeting_reply(text, clean, isolate_winning_transcript(observed), previous, reading), observed)
+    let _k: bool = candidate_set_add_owned(&candidates, knowledge_reply(text, clean, isolate_winning_transcript(observed)), observed)
+    let _n: bool = candidate_set_add_owned(&candidates, name_reply(text, clean, isolate_winning_transcript(observed)), observed)
+    let _r: bool = candidate_set_add_owned(&candidates, recall_reply(clean, isolate_winning_transcript(observed)), observed)
+    let _f: bool = candidate_set_add_owned(&candidates, fact_reply(clean, isolate_winning_transcript(observed)), observed)
     return candidates
 }
 
-function isolate_candidate_transcripts(candidates: ptr<CandidateSet>) {
-    for i in 0 to candidates[0].count {
-        let mut candidate: Proposal = candidates[0].values[i]
-        candidate.memory = isolate_winning_transcript(candidate.memory)
-        candidates[0].values[i] = candidate
+function candidate_set_add_owned(set: ptr<CandidateSet>, value: Proposal, observed: Memory) -> bool {
+    if same(value.reply, "") {
+        if value.memory.recent != null and value.memory.recent != observed.recent {
+            free(value.memory.recent as ptr<void>)
+        }
+        return true
     }
+    if candidate_set_add(set, value) {
+        return true
+    }
+    if value.memory.recent != null and value.memory.recent != observed.recent {
+        free(value.memory.recent as ptr<void>)
+    }
+    return false
 }
 
 function release_candidate_transcripts(candidates: CandidateSet, observed: Memory) {
@@ -677,7 +685,6 @@ function turn_with_candidate_trace(text: string, state: ptr<Memory>, traceCandid
     let reading: LineReading = understand_line(text, previous.topic)
     let observed: Memory = run_observers(text, previous, reading)
     let mut candidates: CandidateSet = collect_responses(text, reading, previous, observed)
-    isolate_candidate_transcripts(&candidates)
     let winner: Proposal = choose_for_text(candidates, previous, observed, text)
     if traceCandidates {
         for i in 0 to candidates.count {
@@ -751,7 +758,6 @@ function run_self_tests() -> i32 {
     let _candidateTurn: Proposal = turn("hello", &candidateMemory)
     let candidateReading: LineReading = understand_line("what is my name?", candidateMemory.topic)
     let mut isolatedCandidates: CandidateSet = collect_responses("what is my name?", candidateReading, candidateMemory, candidateMemory)
-    isolate_candidate_transcripts(&isolatedCandidates)
     if isolatedCandidates.count == 0 or isolatedCandidates.values[0].memory.recent == candidateMemory.recent {
         println("FAIL: responder candidate transcript must be isolated")
         return 77
