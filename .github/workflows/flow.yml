@@ -26,6 +26,44 @@ jobs:
           set -euo pipefail
           ./flow run ../weightless/src/main.flow -- -p "hello" | grep -Fx "Hello! What can I help with?"
           ./flow run ../weightless/src/main.flow -- -p "what's my name?" | grep -Fx "You haven't told me your name yet."
+          ./flow run ../weightless/src/main.flow -- --trace-candidates -p "hello" | grep -F 
+      - name: Check pipe mode keeps conversation state
+        working-directory: flow
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf "hi, i'm Sam\nwhat's my name?\n" | ./flow run ../weightless/src/main.flow > actual.txt
+          grep -Fx "Nice to meet you, Sam. What can I help with?" actual.txt
+          grep -Fx "You're Sam." actual.txt
+
+  differential:
+    needs: native
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: weightless
+      - uses: actions/checkout@v4
+        with:
+          repository: flooooooooooow/flow
+          ref: main
+          path: flow
+      - uses: actions/checkout@v4
+        with:
+          repository: huggingface/pybot
+          ref: 7d63c7fbebb44c7e466e5c8b5c1f341ab767929e
+          path: pybot
+      - name: Measure exact response and winning-module parity
+        shell: bash
+        run: |
+          python3 weightless/ci/compare_reference.py --upstream pybot --flow flow --weightless weightless --output weightless/reports/differential.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pybot-differential
+          path: weightless/reports/differential.json
+WEIGHTLESS_CANDIDATE\tgreeting\tHello! What can I help with?'
       - name: Check pipe mode keeps conversation state
         working-directory: flow
         shell: bash
