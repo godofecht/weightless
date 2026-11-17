@@ -54,7 +54,7 @@ until candidate wording is randomized. The `-v` option prints a module tag,
 not PyBot's millisecond timings.
 
 CI checks Flow's native compiler, twenty runtime regression scenarios and representative CLI contracts.
-A pull-request-only differential job checks 22 fixture turns against upstream PyBot
+A pull-request-only differential job checks 28 fixture turns against upstream PyBot
 at pinned commit `7d63c7fbebb44c7e466e5c8b5c1f341ab767929e`.
 The original Python runtime is used only as the external reference test oracle.
 The JSON report stores both answers, winning modules and exact-match flags;
