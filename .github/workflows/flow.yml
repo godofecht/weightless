@@ -1,0 +1,38 @@
+name: Flow native build and regressions
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  native:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: weightless
+      - uses: actions/checkout@v4
+        with:
+          repository: flooooooooooow/flow
+          ref: main
+          path: flow
+      - name: Run Flow runtime regressions
+        working-directory: flow
+        run: ./flow run ../weightless/src/main.flow -- --self-test
+      - name: Check one-shot CLI
+        working-directory: flow
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual=$(./flow run ../weightless/src/main.flow -- -p "hello")
+          test "$actual" = "Hello! What can I help with?"
+          actual=$(./flow run ../weightless/src/main.flow -- -p "what's my name?")
+          test "$actual" = "You haven't told me your name yet."
+      - name: Check pipe mode keeps conversation state
+        working-directory: flow
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf "hi, i'm Sam\nwhat's my name?\n" | ./flow run ../weightless/src/main.flow > actual.txt
+          grep -Fx "Nice to meet you, Sam. What can I help with?" actual.txt
+          grep -Fx "You're Sam." actual.txt
