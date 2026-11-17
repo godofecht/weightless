@@ -333,6 +333,24 @@ function candidate_set_release(set: ptr<CandidateSet>) {
     set[0] = candidate_set_new()
 }
 
+function reply_was_used(memory: Memory, reply: string) -> bool {
+    if same(reply, "") {
+        return false
+    }
+    if same(memory.lastReply, reply) {
+        return true
+    }
+    if memory.recent == null {
+        return false
+    }
+    for i in 0 to memory.recentCount {
+        if same(memory.recent[i].bot, reply) {
+            return true
+        }
+    }
+    return false
+}
+
 function prefer(current: Proposal, challenger: Proposal, memory: Memory) -> Proposal {
     if same(challenger.reply, "") {
         return current
@@ -344,7 +362,7 @@ function prefer(current: Proposal, challenger: Proposal, memory: Memory) -> Prop
         if current.priority >= 9000 {
             return current
         }
-        if same(current.reply, memory.lastReply) and not same(challenger.reply, memory.lastReply) {
+        if reply_was_used(memory, current.reply) and not reply_was_used(memory, challenger.reply) {
             return challenger
         }
     }
@@ -847,6 +865,29 @@ function run_self_tests() -> i32 {
     }
     candidate_set_release(&snapshotCandidates)
     release_history(committedSnapshot)
+    let mut repeatMemory: Memory = fresh_memory()
+    repeatMemory = append_turn(repeatMemory, TurnRecord {
+        user: "first", bot: "Already answered", module: "general"
+    })
+    repeatMemory = append_turn(repeatMemory, TurnRecord {
+        user: "second", bot: "Different answer", module: "general"
+    })
+    repeatMemory.lastReply = "Different answer"
+    let repeated: Proposal = proposal("Already answered", "general_a", 200, repeatMemory)
+    let novel: Proposal = proposal("New answer", "general_b", 200, repeatMemory)
+    let noveltyWinner: Proposal = prefer(repeated, novel, repeatMemory)
+    if not same(noveltyWinner.module, "general_b") {
+        println("FAIL: nonadjacent repeated reply must yield to novel equal-priority answer")
+        return 53
+    }
+    let repeatHigher: Proposal = prefer(
+        proposal("New answer", "lower", 200, repeatMemory),
+        proposal("Already answered", "higher", 201, repeatMemory), repeatMemory)
+    if not same(repeatHigher.module, "higher") {
+        println("FAIL: repeat avoidance must not override higher priority")
+        return 54
+    }
+    release_history(repeatMemory)
     let mut safetyMemory: Memory = fresh_memory()
     safetyMemory.lastReply = "Careful safety response"
     let safetyFirst: Proposal = proposal("Careful safety response", "safety", 9000, safetyMemory)
@@ -965,7 +1006,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 49 Flow runtime regression scenarios")
+    println("PASS: 51 Flow runtime regression scenarios")
     return 0
 }
 
