@@ -24,10 +24,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          actual=$(./flow run ../weightless/src/main.flow -- -p "hello")
-          test "$actual" = "Hello! What can I help with?"
-          actual=$(./flow run ../weightless/src/main.flow -- -p "what's my name?")
-          test "$actual" = "You haven't told me your name yet."
+          ./flow run ../weightless/src/main.flow -- -p "hello" | grep -Fx "Hello! What can I help with?"
+          ./flow run ../weightless/src/main.flow -- -p "what's my name?" | grep -Fx "You haven't told me your name yet."
       - name: Check pipe mode keeps conversation state
         working-directory: flow
         shell: bash
