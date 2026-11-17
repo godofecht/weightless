@@ -854,7 +854,7 @@ function run_self_tests() -> i32 {
         println("FAIL: isolated candidate memory and arbitrary candidate count")
         return 30
     }
-    let updated: Memory = after_turn("hello", pickedMany, shared)
+    let updated: Memory = run_after_hooks("hello", pickedMany, shared)
     if not same(updated.topic, "committed") or not same(shared.topic, "original") or
        updated.recentCount != 1 or not same(updated.lastReply, "winning") {
         println("FAIL: winner-only memory commit")
@@ -910,7 +910,7 @@ function run_self_tests() -> i32 {
     let _winningAdded: bool = candidate_set_add(&snapshotCandidates,
         proposal("winning response", "winner", 200, winningSnapshot))
     let snapshotWinner: Proposal = choose(snapshotCandidates, observedSnapshot, observedSnapshot)
-    let committedSnapshot: Memory = after_turn("snapshot probe", snapshotWinner, observedSnapshot)
+    let committedSnapshot: Memory = run_after_hooks("snapshot probe", snapshotWinner, observedSnapshot)
     if not same(observedSnapshot.topic, "shared") or
        not same(snapshotWinner.memory.topic, "winner mutation") or
        not same(committedSnapshot.topic, "winner mutation") or
