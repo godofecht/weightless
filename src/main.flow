@@ -1238,20 +1238,17 @@ function main() -> i32 {
             break
         }
         let cmd: string = lower_ascii(trimmed(line.text))
-        if trace and same(cmd, "/reset") {
+        if same(cmd, "/reset") {
             release_history(memory)
             memory = fresh_memory()
+            if interactive {
+                println("New conversation.")
+            }
             continue
         }
         if interactive {
             if same(cmd, "/exit") or same(cmd, "/quit") or same(cmd, "/bye") {
                 break
-            }
-            if same(cmd, "/reset") {
-                release_history(memory)
-                memory = fresh_memory()
-                println("New conversation.")
-                continue
             }
             if same(cmd, "/help") {
                 show_help()
