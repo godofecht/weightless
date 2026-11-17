@@ -113,6 +113,23 @@
         "what should my son take on his first day at secondary school",
         "does my daughter need a phone for year 7"
       ]
+    },
+    {
+      "name": "post_choice_name_correction",
+      "turns": [
+        "hi, i'm Sam",
+        "no, call me Alex",
+        "what's my name?"
+      ]
+    },
+    {
+      "name": "identity_disambiguation",
+      "turns": [
+        "i'm hungry",
+        "what's my name?",
+        "my name is alex",
+        "what is my name?"
+      ]
     }
   ]
 }
