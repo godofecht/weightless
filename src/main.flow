@@ -601,15 +601,25 @@ function choose_for_text(candidates: CandidateSet, previous: Memory, observed: M
     return choose(candidates, previous, observed)
 }
 
+function observe_topic(reading: LineReading, memory: Memory) -> Memory {
+    let mut next: Memory = memory
+    if not same(reading.topic, "") {
+        next.topic = reading.topic
+    } elif same(reading.kind, "question") and not reading.followup {
+        next.topic = ""
+    }
+    return next
+}
+
+function run_observers(text: string, previous: Memory, reading: LineReading) -> Memory {
+    let withFacts: Memory = observe(text, previous)
+    return observe_topic(reading, withFacts)
+}
+
 function turn_with_candidate_trace(text: string, state: ptr<Memory>, traceCandidates: bool) -> Proposal {
     let previous: Memory = state[0]
     let reading: LineReading = understand_line(text, previous.topic)
-    let mut observed: Memory = observe(text, previous)
-    if not same(reading.topic, "") {
-        observed.topic = reading.topic
-    } elif same(reading.kind, "question") and not reading.followup {
-        observed.topic = ""
-    }
+    let observed: Memory = run_observers(text, previous, reading)
     let clean: string = reading.clean
     let mut candidates: CandidateSet = candidate_set_new()
     let greetingSnapshot: Memory = observed
@@ -1060,6 +1070,15 @@ function run_self_tests() -> i32 {
         return 68
     }
     release_history(actualSelf)
+    let mut observerSeed: Memory = fresh_memory()
+    observerSeed.topic = "kettle"
+    let orderedReading: LineReading = understand_line("My name is Ada. What is Thatcher?", observerSeed.topic)
+    let orderedState: Memory = run_observers("My name is Ada. What is Thatcher?", observerSeed, orderedReading)
+    if not same(orderedState.name, "Ada") or not same(orderedState.topic, "") or
+       not same(observerSeed.name, "") or not same(observerSeed.topic, "kettle") {
+        println("FAIL: ordered observers must preserve fact updates while clearing unrelated topic")
+        return 70
+    }
     let mut safetyMemory: Memory = fresh_memory()
     safetyMemory.lastReply = "Careful safety response"
     let safetyFirst: Proposal = proposal("Careful safety response", "safety", 9000, safetyMemory)
@@ -1178,7 +1197,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 69 Flow runtime regression scenarios")
+    println("PASS: 70 Flow runtime regression scenarios")
     return 0
 }
 
