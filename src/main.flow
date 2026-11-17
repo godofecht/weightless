@@ -554,11 +554,16 @@ function turn_with_candidate_trace(text: string, state: ptr<Memory>, traceCandid
     }
     let clean: string = reading.clean
     let mut candidates: CandidateSet = candidate_set_new()
-    let _g: bool = candidate_set_add(&candidates, greeting_reply(text, clean, observed, previous, reading))
-    let _k: bool = candidate_set_add(&candidates, knowledge_reply(text, clean, observed))
-    let _n: bool = candidate_set_add(&candidates, name_reply(text, clean, observed))
-    let _r: bool = candidate_set_add(&candidates, recall_reply(clean, observed))
-    let _f: bool = candidate_set_add(&candidates, fact_reply(clean, observed))
+    let greetingSnapshot: Memory = observed
+    let knowledgeSnapshot: Memory = observed
+    let nameSnapshot: Memory = observed
+    let recallSnapshot: Memory = observed
+    let factSnapshot: Memory = observed
+    let _g: bool = candidate_set_add(&candidates, greeting_reply(text, clean, greetingSnapshot, previous, reading))
+    let _k: bool = candidate_set_add(&candidates, knowledge_reply(text, clean, knowledgeSnapshot))
+    let _n: bool = candidate_set_add(&candidates, name_reply(text, clean, nameSnapshot))
+    let _r: bool = candidate_set_add(&candidates, recall_reply(clean, recallSnapshot))
+    let _f: bool = candidate_set_add(&candidates, fact_reply(clean, factSnapshot))
     let winner: Proposal = choose(candidates, previous, observed)
     if traceCandidates {
         for i in 0 to candidates.count {
@@ -820,6 +825,28 @@ function run_self_tests() -> i32 {
         return 51
     }
     release_history(emptyTranscript)
+    let mut observedSnapshot: Memory = fresh_memory()
+    observedSnapshot.topic = "shared"
+    let mut losingSnapshot: Memory = observedSnapshot
+    let mut winningSnapshot: Memory = observedSnapshot
+    losingSnapshot.topic = "loser mutation"
+    winningSnapshot.topic = "winner mutation"
+    let mut snapshotCandidates: CandidateSet = candidate_set_new()
+    let _losingAdded: bool = candidate_set_add(&snapshotCandidates,
+        proposal("losing response", "loser", 100, losingSnapshot))
+    let _winningAdded: bool = candidate_set_add(&snapshotCandidates,
+        proposal("winning response", "winner", 200, winningSnapshot))
+    let snapshotWinner: Proposal = choose(snapshotCandidates, observedSnapshot, observedSnapshot)
+    let committedSnapshot: Memory = after_turn("snapshot probe", snapshotWinner, observedSnapshot)
+    if not same(observedSnapshot.topic, "shared") or
+       not same(snapshotWinner.memory.topic, "winner mutation") or
+       not same(committedSnapshot.topic, "winner mutation") or
+       committedSnapshot.recentCount != 1 {
+        println("FAIL: independent responder scalar snapshots and winner-only commit")
+        return 52
+    }
+    candidate_set_release(&snapshotCandidates)
+    release_history(committedSnapshot)
     let mut safetyMemory: Memory = fresh_memory()
     safetyMemory.lastReply = "Careful safety response"
     let safetyFirst: Proposal = proposal("Careful safety response", "safety", 9000, safetyMemory)
@@ -938,7 +965,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 48 Flow runtime regression scenarios")
+    println("PASS: 49 Flow runtime regression scenarios")
     return 0
 }
 
