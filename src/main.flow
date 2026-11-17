@@ -621,22 +621,22 @@ function run_observers(text: string, previous: Memory, reading: LineReading) -> 
     return observe_topic(reading, withFacts)
 }
 
+function collect_responses(text: string, reading: LineReading, previous: Memory, observed: Memory) -> CandidateSet {
+    let clean: string = reading.clean
+    let mut candidates: CandidateSet = candidate_set_new()
+    let _g: bool = candidate_set_add(&candidates, greeting_reply(text, clean, observed, previous, reading))
+    let _k: bool = candidate_set_add(&candidates, knowledge_reply(text, clean, observed))
+    let _n: bool = candidate_set_add(&candidates, name_reply(text, clean, observed))
+    let _r: bool = candidate_set_add(&candidates, recall_reply(clean, observed))
+    let _f: bool = candidate_set_add(&candidates, fact_reply(clean, observed))
+    return candidates
+}
+
 function turn_with_candidate_trace(text: string, state: ptr<Memory>, traceCandidates: bool) -> Proposal {
     let previous: Memory = state[0]
     let reading: LineReading = understand_line(text, previous.topic)
     let observed: Memory = run_observers(text, previous, reading)
-    let clean: string = reading.clean
-    let mut candidates: CandidateSet = candidate_set_new()
-    let greetingSnapshot: Memory = observed
-    let knowledgeSnapshot: Memory = observed
-    let nameSnapshot: Memory = observed
-    let recallSnapshot: Memory = observed
-    let factSnapshot: Memory = observed
-    let _g: bool = candidate_set_add(&candidates, greeting_reply(text, clean, greetingSnapshot, previous, reading))
-    let _k: bool = candidate_set_add(&candidates, knowledge_reply(text, clean, knowledgeSnapshot))
-    let _n: bool = candidate_set_add(&candidates, name_reply(text, clean, nameSnapshot))
-    let _r: bool = candidate_set_add(&candidates, recall_reply(clean, recallSnapshot))
-    let _f: bool = candidate_set_add(&candidates, fact_reply(clean, factSnapshot))
+    let mut candidates: CandidateSet = collect_responses(text, reading, previous, observed)
     let winner: Proposal = choose_for_text(candidates, previous, observed, text)
     if traceCandidates {
         for i in 0 to candidates.count {
