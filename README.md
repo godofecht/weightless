@@ -19,7 +19,7 @@ The Flow code uses the production portable-C backend and the Flow standard libra
 
 ## Implemented
 
-The core sequence matches the structural contract in PyBot's `bot/runtime.py`: first observe the user message, then generate responder proposals against isolated memory values, pick the highest-priority candidate, commit the selected state, and record the turn. Current responders cover greetings, introductions and name recall, a kettle descaling example, a follow-up on its timing, a simple factual answer, and a fallback. The terminal supports `-p`, piped input, interactive mode, `/reset`, `/help`, `/exit`, and module tracing with `-v`. The `-s` flag is accepted but does not alter deterministic replies.
+The transcript now grows dynamically rather than truncating after 32 turns. The core sequence matches the structural contract in PyBot's `bot/runtime.py`: first observe the user message, then generate responder proposals against isolated memory values, pick the highest-priority candidate, commit the selected state, and record the turn. Current responders cover greetings, introductions and name recall, a kettle descaling example, a follow-up on its timing, a simple factual answer, and a fallback. The terminal supports `-p`, piped input, interactive mode, `/reset`, `/help`, `/exit`, and module tracing with `-v`. The `-s` flag is accepted but does not alter deterministic replies.
 
 ## Port roadmap and verification
 
