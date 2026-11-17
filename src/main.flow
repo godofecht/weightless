@@ -740,6 +740,19 @@ function run_self_tests() -> i32 {
         return 72
     }
     candidate_set_release(&collectedEmptyCandidates)
+    let mut fallbackSource: Memory = fresh_memory()
+    let _fallbackSeed: Proposal = turn("hello", &fallbackSource)
+    let fallbackBefore: ptr<TurnRecord> = fallbackSource.recent
+    let fallbackResult: Proposal = turn("unmatched nonsense input", &fallbackSource)
+    if not same(fallbackResult.module, "fallback") or fallbackSource.recentCount != 2 {
+        println("FAIL: fallback must append transcript after candidate cleanup")
+        return 86
+    }
+    if fallbackSource.recent == null or not same(fallbackSource.recent[0].user, "hello") or not same(fallbackSource.recent[1].user, "unmatched nonsense input") {
+        println("FAIL: fallback must retain prior transcript content")
+        return 87
+    }
+    release_history(fallbackSource)
     let mut candidateSource: Memory = fresh_memory()
     let _candidateSeed: Proposal = turn("hello", &candidateSource)
     let candidateReading: LineReading = understand_line("hi", candidateSource.topic)
