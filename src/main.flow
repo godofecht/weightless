@@ -1072,8 +1072,10 @@ function run_self_tests() -> i32 {
     release_history(actualSelf)
     let mut observerSeed: Memory = fresh_memory()
     observerSeed.topic = "kettle"
-    let orderedReading: LineReading = understand_line("My name is Ada. What is Thatcher?", observerSeed.topic)
-    let orderedState: Memory = run_observers("My name is Ada. What is Thatcher?", observerSeed, orderedReading)
+    let nameReading: LineReading = understand_line("My name is Ada", observerSeed.topic)
+    let withName: Memory = run_observers("My name is Ada", observerSeed, nameReading)
+    let orderedReading: LineReading = understand_line("What is Thatcher?", withName.topic)
+    let orderedState: Memory = run_observers("What is Thatcher?", withName, orderedReading)
     if not same(orderedState.name, "Ada") or not same(orderedState.topic, "") or
        not same(observerSeed.name, "") or not same(observerSeed.topic, "kettle") {
         println("FAIL: ordered observers must preserve fact updates while clearing unrelated topic")
