@@ -1,3 +1,7 @@
+import std.io { FileRead, io_read_text }
+import std.string { ParseI64, str_parse_i32 }
+import std.process { proc_getenv }
+
 # Source-derived knowledge rows from Hugging Face PyBot.
 # Upstream: huggingface/pybot@7d63c7fbebb44c7e466e5c8b5c1f341ab767929e
 # Paths: bot/knowledge/power_heat.py, desk_setup.py, parking.py
@@ -5,6 +9,8 @@
 
 extern {
     function strlen(s: string) -> i64
+    function realloc(p: ptr<void>, size: i64) -> ptr<void>
+    function free(p: ptr<void>) -> void
 }
 
 export struct KnowledgeHit {
@@ -122,5 +128,149 @@ export function knowledge_lookup(clean: string) -> KnowledgeHit {
         "Parking on the pavement is an offence right across London and in Scotland, and elsewhere only where a traffic order covers that street - so the signs and lines on it, and the council's own parking page, are what decide your road, and that is where to check rather than the country as a whole. Where it is allowed you must still leave the pavement clear enough for a wheelchair or a pushchair, and blocking a dropped kerb blocks someone's drive. A ticket for it is a penalty charge notice, argued in the council's own appeal rather than in a court."
     ))
 
+    return prefer_hit(best, corpus_lookup(clean))
+}
+
+
+struct CorpusRow {
+    entryId: string,
+    first: string,
+    second: string,
+    extraAsk: string,
+    avoid: string,
+    bias: i32,
+    reply: string,
+    source: string
+}
+
+let mut corpusLoaded: bool = false
+let mut corpusRaw: string = ""
+let mut corpusRows: ptr<CorpusRow> = null
+let mut corpusCount: i32 = 0
+let mut corpusCapacity: i32 = 0
+
+function append_corpus_row(row: CorpusRow) {
+    if corpusCount >= corpusCapacity {
+        let mut nextCapacity: i32 = 16
+        if corpusCapacity > 0 {
+            if corpusCapacity > 1073741823 {
+                return
+            }
+            nextCapacity = corpusCapacity * 2
+        }
+        let newBuffer: ptr<CorpusRow> = realloc(
+            corpusRows as ptr<void>, (nextCapacity as i64) * sizeof<CorpusRow>()
+        ) as ptr<CorpusRow>
+        if newBuffer == null {
+            return
+        }
+        corpusRows = newBuffer
+        corpusCapacity = nextCapacity
+    }
+    corpusRows[corpusCount] = row
+    corpusCount = corpusCount + 1
+}
+
+function parse_corpus_line(bytes: ptr<u8>, start: i32, end: i32) {
+    if end <= start or bytes[start] == 35 {
+        return
+    }
+    let mut fields: array<string, 8> = []
+    let mut fieldStart: i32 = start
+    let mut fieldCount: i32 = 0
+    let mut i: i32 = start
+    while i <= end {
+        if i == end or bytes[i] == 9 {
+            if fieldCount >= 8 {
+                return
+            }
+            bytes[i] = 0
+            fields[fieldCount] = (bytes + fieldStart) as string
+            fieldCount = fieldCount + 1
+            fieldStart = i + 1
+        }
+        i = i + 1
+    }
+    if fieldCount != 8 {
+        return
+    }
+    let parsed: ParseI64 = str_parse_i32(fields[5])
+    if not parsed.ok {
+        return
+    }
+    append_corpus_row(CorpusRow {
+        entryId: fields[0],
+        first: fields[1],
+        second: fields[2],
+        extraAsk: fields[3],
+        avoid: fields[4],
+        bias: parsed.value as i32,
+        reply: fields[6],
+        source: fields[7]
+    })
+}
+
+function load_corpus() {
+    if corpusLoaded {
+        return
+    }
+    corpusLoaded = true
+    let specified: string = proc_getenv("WEIGHTLESS_KNOWLEDGE")
+    let mut file: FileRead = io_read_text("data/knowledge.tsv")
+    if strlen(specified) > 0 {
+        file = io_read_text(specified)
+    } elif not file.ok {
+        file = io_read_text("../weightless/data/knowledge.tsv")
+    }
+    if not file.ok or file.len == 0 {
+        return
+    }
+    corpusRaw = file.data
+    let p: ptr<u8> = corpusRaw as ptr<u8>
+    let n: i32 = file.len as i32
+    let mut lineStart: i32 = 0
+    let mut i: i32 = 0
+    while i <= n {
+        if i == n or p[i] == 10 {
+            parse_corpus_line(p, lineStart, i)
+            lineStart = i + 1
+        }
+        i = i + 1
+    }
+}
+
+export function knowledge_corpus_count() -> i32 {
+    load_corpus()
+    return corpusCount
+}
+
+function corpus_lookup(clean: string) -> KnowledgeHit {
+    load_corpus()
+    let mut best: KnowledgeHit = KnowledgeHit {
+        reply: "", module: "", entry: "", score: 0
+    }
+    let mut i: i32 = 0
+    while i < corpusCount {
+        let rule: CorpusRow = corpusRows[i]
+        if strlen(rule.extraAsk) == 0 or any_alternative(clean, rule.extraAsk) {
+            best = prefer_hit(best, entry(clean, rule.entryId, rule.first,
+                rule.second, rule.avoid, rule.bias, rule.reply))
+        }
+        i = i + 1
+    }
     return best
+}
+
+export function knowledge_corpus_release() {
+    if corpusRows != null {
+        free(corpusRows as ptr<void>)
+    }
+    if strlen(corpusRaw) > 0 {
+        free(corpusRaw as ptr<void>)
+    }
+    corpusRows = null
+    corpusRaw = ""
+    corpusCount = 0
+    corpusCapacity = 0
+    corpusLoaded = false
 }
