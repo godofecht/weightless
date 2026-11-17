@@ -549,7 +549,7 @@ function after_correction(text: string, memory: Memory) -> Memory {
     } else {
         return after
     }
-    let name: string = extract_word(text, at)
+    let name: string = extract_word(trimmed(text), at)
     if not same(name, "") {
         after.name = name
         after.facts = facts_note(after.facts, "self", "name", name, text, after.turns + 1)
@@ -1028,6 +1028,15 @@ function run_self_tests() -> i32 {
         println("FAIL: reset command parsing across input modes")
         return 67
     }
+    let mut spacedCorrection: Memory = fresh_memory()
+    let _spaced: Proposal = turn("   actually, call me Morgan   ", &spacedCorrection)
+    let spacedRecall: Proposal = turn("what is my name?", &spacedCorrection)
+    if not same(spacedRecall.reply, "You're Morgan.") or
+       not same(facts_latest(spacedCorrection.facts, "self", "name"), "Morgan") {
+        println("FAIL: whitespace-prefixed correction offset")
+        return 68
+    }
+    release_history(spacedCorrection)
     let mut safetyMemory: Memory = fresh_memory()
     safetyMemory.lastReply = "Careful safety response"
     let safetyFirst: Proposal = proposal("Careful safety response", "safety", 9000, safetyMemory)
@@ -1146,7 +1155,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 66 Flow runtime regression scenarios")
+    println("PASS: 67 Flow runtime regression scenarios")
     return 0
 }
 
