@@ -750,6 +750,62 @@ function run_self_tests() -> i32 {
         return 33
     }
     candidate_set_release(&emptyCandidates)
+    let mut factMemory: Memory = fresh_memory()
+    let _relative: Proposal = turn("my sister's name is Lucy", &factMemory)
+    let sister: Proposal = turn("what's my sister's name?", &factMemory)
+    if not same(sister.reply, "Your sister's name is Lucy.") or
+       facts_count(factMemory.facts) != 1 {
+        println("FAIL: attributed relative name")
+        return 36
+    }
+    let unknownSelf: Proposal = turn("what's my name?", &factMemory)
+    if not same(unknownSelf.reply, "You haven't told me your name yet.") {
+        println("FAIL: relative facts never become self facts")
+        return 37
+    }
+    let _correctSister: Proposal = turn("actually my sister's name is Maya", &factMemory)
+    let sisterCorrected: Proposal = turn("what's my sister's name?", &factMemory)
+    if not same(sisterCorrected.reply, "Your sister's name is Maya.") or
+       facts_latest_turn(factMemory.facts, "sister", "name") != 4 {
+        println("FAIL: corrected relative fact and source chronology")
+        return 38
+    }
+    let _selfIntro: Proposal = turn("my name is Sam", &factMemory)
+    let selfRecall: Proposal = turn("what's my name?", &factMemory)
+    if not same(selfRecall.reply, "You're Sam.") or
+       not same(facts_latest(factMemory.facts, "self", "name"), "Sam") {
+        println("FAIL: self name stored separately from relatives")
+        return 39
+    }
+    let _job: Proposal = turn("i work as a teacher", &factMemory)
+    let jobRecall: Proposal = turn("what is my job?", &factMemory)
+    if not same(jobRecall.reply, "You told me your job is teacher.") {
+        println("FAIL: job observation and recall")
+        return 40
+    }
+    let _city: Proposal = turn("i live in Cambridge", &factMemory)
+    let cityRecall: Proposal = turn("where do i live?", &factMemory)
+    if not same(cityRecall.reply, "You said you live in Cambridge.") {
+        println("FAIL: city observation and recall")
+        return 41
+    }
+    let _rename: Proposal = turn("no, call me Alex", &factMemory)
+    let renamed: Proposal = turn("what's my name?", &factMemory)
+    if not same(renamed.reply, "You're Alex.") or
+       not same(facts_latest(factMemory.facts, "self", "name"), "Alex") or
+       facts_count(factMemory.facts) != 6 {
+        println("FAIL: corrected self identity in append-only fact log")
+        return 42
+    }
+    release_history(factMemory)
+    factMemory = fresh_memory()
+    let forgotten: Proposal = turn("what's my sister's name?", &factMemory)
+    if not same(forgotten.reply, "You haven't told me your sister's name.") or
+       facts_count(factMemory.facts) != 0 {
+        println("FAIL: reset removes owned fact history")
+        return 43
+    }
+    release_history(factMemory)
     release_history(unidentified)
     release_history(corrected)
     release_history(updated)
@@ -757,7 +813,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 33 Flow runtime regression scenarios")
+    println("PASS: 40 Flow runtime regression scenarios")
     return 0
 }
 
