@@ -28,7 +28,7 @@ specificity, and refusal handling. Weightless does not implement those policies 
 | `bot/modules/arbiter.py` | `choose`, `prefer` | Four candidate slots, priority and non-repeat tie-break only |
 | `bot/modules/greeting.py` | `greeting_reply` | Tiny deterministic subset |
 | `bot/modules/memory_store.py` | `Memory`, `observe`, `name_reply`, `recall_reply` | Name and latest-turn recall only |
-| `bot/compose/*`, `bot/knowledge/*` | `knowledge_reply` | Three example answer families |
+| `bot/compose/*`, `bot/knowledge/*` | `knowledge_reply` and `src/knowledge.flow` | Three example answer families plus 3 source-derived knowledge entries |
 | `pybot.py` | `main`, `read_line` | Basic CLI; timing and terminal clearing omitted |
 
 ## Not ported
@@ -53,8 +53,8 @@ The `-s/--seed` argument is accepted for compatibility but has no effect
 until candidate wording is randomized. The `-v` option prints a module tag,
 not PyBot's millisecond timings.
 
-CI checks Flow's native compiler, fourteen runtime regression scenarios and representative CLI contracts.
-A pull-request-only differential job checks 22 fixture turns against upstream PyBot
+CI checks Flow's native compiler, twenty runtime regression scenarios and representative CLI contracts.
+A pull-request-only differential job checks 28 fixture turns against upstream PyBot
 at pinned commit `7d63c7fbebb44c7e466e5c8b5c1f341ab767929e`.
 The original Python runtime is used only as the external reference test oracle.
 The JSON report stores both answers, winning modules and exact-match flags;

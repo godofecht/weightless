@@ -63,6 +63,27 @@
         "I tried hot water already",
         "What next?"
       ]
+    },
+    {
+      "name": "electrical_power_and_exclusion",
+      "turns": [
+        "my wall socket is hot and buzzing",
+        "my tooth socket is hot"
+      ]
+    },
+    {
+      "name": "desk_screen_height",
+      "turns": [
+        "should i get a laptop stand?",
+        "my monitor is broken"
+      ]
+    },
+    {
+      "name": "pavement_parking",
+      "turns": [
+        "is it legal to park on the pavement?",
+        "the pavement is icy"
+      ]
     }
   ]
 }

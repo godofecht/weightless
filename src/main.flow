@@ -1,5 +1,6 @@
 import std.bytebuf { ByteBuf, bb_new, bb_putc, bb_str, bb_free }
 import std.process { proc_argc, proc_argv }
+import .knowledge { KnowledgeHit, knowledge_lookup }
 
 extern {
     function strlen(s: string) -> i64
@@ -243,6 +244,10 @@ function greeting_reply(text: string, lower: string, memory: Memory, previous: M
 }
 
 function knowledge_reply(text: string, lower: string, memory: Memory) -> Proposal {
+    let hit: KnowledgeHit = knowledge_lookup(lower)
+    if hit.score > 0 {
+        return proposal(hit.reply, hit.module, 300 + hit.score, memory)
+    }
     if contains(lower, "kettle") or contains(lower, "limescale") or contains(lower, "descale") {
         return proposal("Half fill the kettle with equal parts water and white vinegar, boil it, leave it for half an hour, then rinse thoroughly and boil fresh water twice.", "kettle", 300, memory)
     }
@@ -454,9 +459,41 @@ function run_self_tests() -> i32 {
         println("FAIL: earliest transcript preserved")
         return 15
     }
+    let mut domainMemory: Memory = fresh_memory()
+    let power: Proposal = turn("my wall socket is hot and buzzing", &domainMemory)
+    if not same(power.module, "answers") or not contains(power.reply, "unplug it at the wall") {
+        println("FAIL: source-derived electrical entry")
+        return 16
+    }
+    let dental: Proposal = turn("my tooth socket is hot", &domainMemory)
+    if same(dental.module, "answers") {
+        println("FAIL: electrical entry exclusion on dental context")
+        return 17
+    }
+    let setup: Proposal = turn("should i get a laptop stand?", &domainMemory)
+    if not same(setup.module, "answers") or not contains(setup.reply, "external keyboard") {
+        println("FAIL: source-derived desk setup entry")
+        return 18
+    }
+    let screen: Proposal = turn("my monitor is broken", &domainMemory)
+    if same(screen.module, "answers") {
+        println("FAIL: desk setup broken-screen exclusion")
+        return 19
+    }
+    let parking: Proposal = turn("is it legal to park on the pavement?", &domainMemory)
+    if not same(parking.module, "answers") or not contains(parking.reply, "traffic order") {
+        println("FAIL: source-derived parking entry")
+        return 20
+    }
+    let cable: Proposal = turn("the cable is long", &domainMemory)
+    if same(cable.module, "answers") {
+        println("FAIL: knowledge entry requires both matching groups")
+        return 21
+    }
+    release_history(domainMemory)
     release_history(memory)
     release_history(longMemory)
-    println("PASS: 14 Flow runtime regression scenarios")
+    println("PASS: 20 Flow runtime regression scenarios")
     return 0
 }
 
