@@ -679,13 +679,13 @@ function read_line() -> InputLine {
 function run_self_tests() -> i32 {
     let emptyReading: LineReading = understand_line("unmatched nonsense input", "")
     let emptyMemory: Memory = fresh_memory()
-    let mut emptyCandidates: CandidateSet = collect_responses("unmatched nonsense input", emptyReading, emptyMemory, emptyMemory)
-    if emptyCandidates.count != 0 {
+    let mut collectedEmptyCandidates: CandidateSet = collect_responses("unmatched nonsense input", emptyReading, emptyMemory, emptyMemory)
+    if collectedEmptyCandidates.count != 0 {
         println("FAIL: responder collection must omit empty proposals")
-        candidate_set_release(&emptyCandidates)
+        candidate_set_release(&collectedEmptyCandidates)
         return 72
     }
-    candidate_set_release(&emptyCandidates)
+    candidate_set_release(&collectedEmptyCandidates)
     let mut memory: Memory = fresh_memory()
     let a: Proposal = turn("hi, i'm Sam", &memory)
     if not same(a.reply, "Nice to meet you, Sam. What can I help with?") {
