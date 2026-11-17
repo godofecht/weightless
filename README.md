@@ -1,9 +1,32 @@
 # Weightless
 
-A native [Flow](https://github.com/flooooooooooow/flow) reimplementation of [Hugging Face's PyBot](https://github.com/huggingface/pybot).
+A native [Flow](https://github.com/flooooooooooow/flow) reimplementation of [Hugging Face's PyBot](https://github.com/huggingface/pybot). No model, no weights, no training.
 
-This repository is being built incrementally. The source project contains roughly 640,000 lines of Python across its rule-based understanding, memory, knowledge, composition, and module arbitration layers. This repository is **not yet a feature-complete replacement**.
+**Status: initial implementation, not a complete PyBot replacement.** PyBot consists of approximately 640k lines of Python. Weightless currently implements the runtime pipeline and a small set of deterministic rules. It does not reproduce PyBot's benchmark results or safety response coverage.
 
-Development proceeds by porting the observable runtime contract, adding focused deterministic regression tests, and translating response modules and data in traceable batches. Flow's portable-C backend is the initial target.
+## Run
 
-Upstream PyBot is Apache-2.0 licensed; derived material must retain attribution and license notices. See the development branch for the first implementation.
+Install [Flow 2.x](https://github.com/flooooooooooow/flow), then run:
+
+```sh
+flow run src/main.flow -- --self-test
+flow run src/main.flow -- -p "hi, i'm Sam"
+printf "hi, i'm Sam\nwhat's my name?\n" | flow run src/main.flow
+flow run src/main.flow
+```
+
+The Flow code uses the production portable-C backend and the Flow standard library. No Python interpreter or model runtime is used by Weightless.
+
+## Implemented
+
+The core sequence matches the structural contract in PyBot's `bot/runtime.py`: first observe the user message, then generate responder proposals against isolated memory values, pick the highest-priority candidate, commit the selected state, and record the turn. Current responders cover greetings, introductions and name recall, a kettle descaling example, a follow-up on its timing, a simple factual answer, and a fallback. The terminal supports `-p`, piped input, interactive mode, `/reset`, `/help`, `/exit`, and module tracing with `-v`. The `-s` flag is accepted but does not alter deterministic replies.
+
+## Port roadmap and verification
+
+See [PORTING.md](PORTING.md) for exact source-to-target mapping, unported components, parity requirements, and next implementation steps.
+
+The [native Flow CI workflow](.github/workflows/flow.yml) checks the compiler and basic CLI scenarios. The source also has a `--self-test` mode; successful CI, not merely committed tests, is evidence that the compiler executes this revision.
+
+## Origin and licence
+
+Upstream: [huggingface/pybot](https://github.com/huggingface/pybot), Apache-2.0. The runtime design is adapted from upstream, with attribution in [NOTICE](NOTICE) and the upstream [LICENSE](LICENSE) reproduced. This is an independent Flow rewrite, not an official Hugging Face release.
