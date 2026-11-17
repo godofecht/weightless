@@ -27,7 +27,9 @@ specificity, and refusal handling. Weightless does not implement those policies 
 | `bot/modules/arbiter.py` | `choose`, `prefer` | Arbitrary candidate count, priority and non-repeat tie-break only |
 | `bot/modules/greeting.py` | `greeting_reply` | Tiny deterministic subset |
 | `bot/modules/memory_store.py` | `Memory`, `observe`, `name_reply`, `recall_reply`, `fact_reply` | Name, latest-turn, job, city, and named-relative recall subsets |
-| `bot/understanding/{normalize,kinds,topics,references}.py` | `src/understanding.flow` | Partial shared line reading: ASCII normalization, kind, intent, answer shape and short follow-up topic inheritance |\n| `bot/memory/facts.py` | `src/facts.flow` | Immutable, attributed fact nodes with source utterance and turn; only a small observation/retrieval subset |\n| `bot/compose/*`, `bot/knowledge/*` | `knowledge_reply` and `src/knowledge.flow` | Three example answer families plus 8 source-derived knowledge entries |
+| `bot/understanding/{normalize,kinds,topics,references}.py` | `src/understanding.flow` | Partial shared line reading: ASCII normalization, kind, intent, answer shape and short follow-up topic inheritance |
+| `bot/memory/facts.py` | `src/facts.flow` | Immutable, attributed fact nodes with source utterance and turn; only a small observation/retrieval subset |
+| `bot/compose/*`, `bot/knowledge/*` | `knowledge_reply` and `src/knowledge.flow` | Three example answer families plus 8 source-derived knowledge entries |
 | `pybot.py` | `main`, `read_line` | Basic CLI; timing and terminal clearing omitted |
 
 ## Not ported
