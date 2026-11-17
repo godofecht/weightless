@@ -677,6 +677,15 @@ function read_line() -> InputLine {
 }
 
 function run_self_tests() -> i32 {
+    let emptyReading: LineReading = understand_line("unmatched nonsense input", "")
+    let emptyMemory: Memory = fresh_memory()
+    let mut emptyCandidates: CandidateSet = collect_responses("unmatched nonsense input", emptyReading, emptyMemory, emptyMemory)
+    if emptyCandidates.count != 0 {
+        println("FAIL: responder collection must omit empty proposals")
+        candidate_set_release(&emptyCandidates)
+        return 72
+    }
+    candidate_set_release(&emptyCandidates)
     let mut memory: Memory = fresh_memory()
     let a: Proposal = turn("hi, i'm Sam", &memory)
     if not same(a.reply, "Nice to meet you, Sam. What can I help with?") {
@@ -1216,7 +1225,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 71 Flow runtime regression scenarios")
+    println("PASS: 72 Flow runtime regression scenarios")
     return 0
 }
 
