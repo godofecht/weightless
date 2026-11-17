@@ -318,7 +318,7 @@ bot/memory/doubt.py	8448	not-started
 bot/memory/dream.py	11837	not-started		
 bot/memory/earlier.py	30689	not-started		
 bot/memory/enough.py	47009	not-started		
-bot/memory/facts.py	663125	not-started		
+bot/memory/facts.py	663125	partial	src/facts.flow	Immutable source/turn/owner records only; extract/validation rules largely pending
 bot/memory/favourite.py	25584	not-started		
 bot/memory/filler.py	4701	not-started		
 bot/memory/goals.py	7365	not-started		
