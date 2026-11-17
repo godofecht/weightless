@@ -1,6 +1,6 @@
 import std.bytebuf { ByteBuf, bb_new, bb_putc, bb_str, bb_free }
 import std.process { proc_argc, proc_argv }
-import .knowledge { KnowledgeHit, knowledge_lookup }
+import .knowledge { KnowledgeHit, knowledge_lookup, knowledge_corpus_count, knowledge_corpus_release }
 
 extern {
     function strlen(s: string) -> i64
@@ -490,16 +490,51 @@ function run_self_tests() -> i32 {
         println("FAIL: knowledge entry requires both matching groups")
         return 21
     }
+    if knowledge_corpus_count() != 5 {
+        println("FAIL: source corpus count")
+        return 22
+    }
+    let pasta: Proposal = turn("how do i cook pasta in the microwave", &domainMemory)
+    if not same(pasta.module, "answers") or not contains(pasta.reply, "8 to 10 minutes") {
+        println("FAIL: corpus pasta entry")
+        return 23
+    }
+    let eggs: Proposal = turn("how do i scramble eggs in the microwave", &domainMemory)
+    if not same(eggs.module, "answers") or not contains(eggs.reply, "30-second bursts") {
+        println("FAIL: corpus egg entry")
+        return 24
+    }
+    let vegetables: Proposal = turn("how do i steam broccoli in the microwave", &domainMemory)
+    if not same(vegetables.module, "answers") or not contains(vegetables.reply, "microwave-safe") {
+        println("FAIL: corpus vegetables entry")
+        return 25
+    }
+    let reheat: Proposal = turn("how long to reheat pasta in the microwave", &domainMemory)
+    if same(reheat.module, "answers") {
+        println("FAIL: reheating exclusion")
+        return 26
+    }
+    let foodClock: Proposal = turn("i left my lunch out overnight, is it safe", &domainMemory)
+    if not same(foodClock.module, "answers") or not contains(foodClock.reply, "two hours") {
+        println("FAIL: corpus left-out clock")
+        return 27
+    }
+    let schoolKit: Proposal = turn("what should my son take on his first day at secondary school", &domainMemory)
+    if not same(schoolKit.module, "answers") or not contains(schoolKit.reply, "pencil case") {
+        println("FAIL: corpus secondary school kit")
+        return 28
+    }
     release_history(domainMemory)
     release_history(memory)
     release_history(longMemory)
-    println("PASS: 20 Flow runtime regression scenarios")
+    knowledge_corpus_release()
+    println("PASS: 27 Flow runtime regression scenarios")
     return 0
 }
 
 function show_help() {
     println("Weightless: a rule-based chatbot in Flow")
-    println("Usage: weightless [-p TEXT] [-i] [-v] [-s N] [--trace] [--self-test]")
+    println("Usage: weightless [-p TEXT] [-i] [-v] [-s N] [--trace] [--knowledge-stats] [--self-test]")
     println("Commands in interactive mode: /help /reset /exit")
 }
 
@@ -534,6 +569,10 @@ function main() -> i32 {
             i = i + 1
         } elif same(arg, "--self-test") {
             return run_self_tests()
+        } elif same(arg, "--knowledge-stats") {
+            println(knowledge_corpus_count())
+            knowledge_corpus_release()
+            return 0
         } elif same(arg, "--help") or same(arg, "-h") {
             show_help()
             return 0
@@ -568,6 +607,7 @@ function main() -> i32 {
         }
         if not interactive {
             release_history(memory)
+            knowledge_corpus_release()
             return 0
         }
     }
@@ -617,5 +657,6 @@ function main() -> i32 {
         }
     }
     release_history(memory)
+    knowledge_corpus_release()
     return 0
 }

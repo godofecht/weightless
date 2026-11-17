@@ -84,6 +84,35 @@
         "is it legal to park on the pavement?",
         "the pavement is icy"
       ]
+    },
+    {
+      "name": "microwave_methods",
+      "turns": [
+        "how do i cook pasta in the microwave",
+        "how do i scramble eggs in the microwave",
+        "how do i steam broccoli in the microwave"
+      ]
+    },
+    {
+      "name": "microwave_exclusions",
+      "turns": [
+        "how long to reheat pasta in the microwave",
+        "my microwave is broken"
+      ]
+    },
+    {
+      "name": "food_left_out_general",
+      "turns": [
+        "i left my lunch out overnight, is it safe",
+        "i left chicken out overnight, is it safe"
+      ]
+    },
+    {
+      "name": "secondary_first_day_kit",
+      "turns": [
+        "what should my son take on his first day at secondary school",
+        "does my daughter need a phone for year 7"
+      ]
     }
   ]
 }
