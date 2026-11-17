@@ -1,0 +1,68 @@
+{
+  "source": "huggingface/pybot",
+  "source_commit": "7d63c7fbebb44c7e466e5c8b5c1f341ab767929e",
+  "sessions": [
+    {
+      "name": "greeting_and_name_recall",
+      "turns": [
+        "hi, i'm Sam",
+        "what's my name?",
+        "thanks"
+      ]
+    },
+    {
+      "name": "kettle_topic_followup",
+      "turns": [
+        "my kettle is full of limescale, how do i get rid of it?",
+        "how long does that take",
+        "what did i just say?"
+      ]
+    },
+    {
+      "name": "general_facts",
+      "turns": [
+        "Why do onions make you cry?",
+        "How long should I boil an egg?"
+      ]
+    },
+    {
+      "name": "contextual_reply",
+      "turns": [
+        "hello",
+        "what was your last answer?",
+        "what did you just say?"
+      ]
+    },
+    {
+      "name": "forgotten_name",
+      "turns": [
+        "what's my name?",
+        "my name is Alex",
+        "what is my name?"
+      ]
+    },
+    {
+      "name": "ordinary_chat",
+      "turns": [
+        "How are you?",
+        "I am learning to cook",
+        "where should I start?"
+      ]
+    },
+    {
+      "name": "uncertainty",
+      "turns": [
+        "Explain how a bicycle works",
+        "What should I do next?"
+      ]
+    },
+    {
+      "name": "household",
+      "turns": [
+        "What can I do about a blocked sink?",
+        "I tried hot water already",
+        "What next?"
+      ]
+    }
+  ]
+}
