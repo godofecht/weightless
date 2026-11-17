@@ -1,0 +1,431 @@
+import std.bytebuf { ByteBuf, bb_new, bb_putc, bb_str, bb_free }
+import std.process { proc_argc, proc_argv }
+
+extern {
+    function strlen(s: string) -> i64
+    function strcmp(a: string, b: string) -> i32
+    function getchar() -> i32
+    function fflush(stream: ptr<void>) -> i32
+    function isatty(fd: i32) -> i32
+}
+
+struct Memory {
+    name: string,
+    topic: string,
+    lastUser: string,
+    lastReply: string,
+    turns: i32
+}
+
+struct Proposal {
+    reply: string,
+    module: string,
+    priority: i32,
+    memory: Memory
+}
+
+struct InputLine {
+    text: string,
+    eof: bool
+}
+
+function fresh_memory() -> Memory {
+    return Memory {
+        name: "",
+        topic: "",
+        lastUser: "",
+        lastReply: "",
+        turns: 0
+    }
+}
+
+function same(a: string, b: string) -> bool {
+    return strcmp(a, b) == 0
+}
+
+function lower_ascii(s: string) -> string {
+    let buf: ptr<ByteBuf> = bb_new(64)
+    let data: ptr<u8> = s as ptr<u8>
+    let n: i32 = strlen(s) as i32
+    for i in 0 to n {
+        let mut c: u8 = data[i]
+        if c >= 65 and c <= 90 {
+            c = c + 32
+        }
+        bb_putc(buf, c)
+    }
+    let result: string = bb_str(buf)
+    bb_free(buf)
+    return result
+}
+
+function whitespace(c: u8) -> bool {
+    return c == 32 or c == 9 or c == 10 or c == 13
+}
+
+function trimmed(s: string) -> string {
+    let bytes: ptr<u8> = s as ptr<u8>
+    let n: i32 = strlen(s) as i32
+    let mut first: i32 = 0
+    let mut last: i32 = n
+    while first < last and whitespace(bytes[first]) {
+        first = first + 1
+    }
+    while last > first and whitespace(bytes[last - 1]) {
+        last = last - 1
+    }
+    let out: ptr<ByteBuf> = bb_new(64)
+    for i in first to last {
+        bb_putc(out, bytes[i])
+    }
+    let value: string = bb_str(out)
+    bb_free(out)
+    return value
+}
+
+function index_of(s: string, needle: string) -> i32 {
+    let n: i32 = strlen(s) as i32
+    let m: i32 = strlen(needle) as i32
+    if m == 0 {
+        return 0
+    }
+    if m > n {
+        return -1
+    }
+    let a: ptr<u8> = s as ptr<u8>
+    let b: ptr<u8> = needle as ptr<u8>
+    let mut i: i32 = 0
+    while i <= n - m {
+        let mut j: i32 = 0
+        while j < m and a[i + j] == b[j] {
+            j = j + 1
+        }
+        if j == m {
+            return i
+        }
+        i = i + 1
+    }
+    return -1
+}
+
+function contains(s: string, needle: string) -> bool {
+    return index_of(s, needle) >= 0
+}
+
+function first_word(s: string, word: string) -> bool {
+    if index_of(s, word) != 0 {
+        return false
+    }
+    let n: i32 = strlen(s) as i32
+    let m: i32 = strlen(word) as i32
+    if n == m {
+        return true
+    }
+    let chars: ptr<u8> = s as ptr<u8>
+    return whitespace(chars[m]) or chars[m] == 44 or chars[m] == 33 or chars[m] == 46
+}
+
+function extract_word(s: string, start: i32) -> string {
+    let data: ptr<u8> = s as ptr<u8>
+    let n: i32 = strlen(s) as i32
+    let mut i: i32 = start
+    while i < n and whitespace(data[i]) {
+        i = i + 1
+    }
+    let out: ptr<ByteBuf> = bb_new(32)
+    while i < n {
+        let c: u8 = data[i]
+        if not ((c >= 65 and c <= 90) or (c >= 97 and c <= 122) or c == 45) {
+            break
+        }
+        bb_putc(out, c)
+        i = i + 1
+    }
+    let name: string = bb_str(out)
+    bb_free(out)
+    return name
+}
+
+function observe(text: string, memory: Memory) -> Memory {
+    let mut next: Memory = memory
+    let lower: string = lower_ascii(text)
+    let mut start: i32 = index_of(lower, "my name is ")
+    if start >= 0 {
+        start = start + 11
+    } else {
+        start = index_of(lower, "i'm ")
+        if start >= 0 {
+            start = start + 4
+        } else {
+            start = index_of(lower, "i am ")
+            if start >= 0 {
+                start = start + 5
+            }
+        }
+    }
+    if start >= 0 {
+        let name: string = extract_word(text, start)
+        if not same(name, "") {
+            next.name = name
+        }
+    }
+    if contains(lower, "kettle") or contains(lower, "limescale") or contains(lower, "descale") {
+        next.topic = "kettle"
+    }
+    return next
+}
+
+function proposal(reply: string, module: string, priority: i32, memory: Memory) -> Proposal {
+    return Proposal { reply: reply, module: module, priority: priority, memory: memory }
+}
+
+function prefer(current: Proposal, challenger: Proposal, memory: Memory) -> Proposal {
+    if same(challenger.reply, "") {
+        return current
+    }
+    if challenger.priority > current.priority {
+        return challenger
+    }
+    if challenger.priority == current.priority {
+        if same(current.reply, memory.lastReply) and not same(challenger.reply, memory.lastReply) {
+            return challenger
+        }
+    }
+    return current
+}
+
+function name_reply(text: string, lower: string, memory: Memory) -> Proposal {
+    if contains(lower, "what's my name") or contains(lower, "what is my name") or contains(lower, "do you remember my name") {
+        if same(memory.name, "") {
+            return proposal("You haven't told me your name yet.", "name_recall", 7000, memory)
+        }
+        return proposal("You're " + memory.name + ".", "name_recall", 7000, memory)
+    }
+    return proposal("", "name_recall", 7000, memory)
+}
+
+function greeting_reply(text: string, lower: string, memory: Memory, previous: Memory) -> Proposal {
+    if first_word(lower, "hello") or first_word(lower, "hi") or first_word(lower, "hey") {
+        if not same(memory.name, "") and not same(memory.name, previous.name) {
+            return proposal("Nice to meet you, " + memory.name + ". What can I help with?", "greeting", 500, memory)
+        }
+        if not same(memory.name, "") {
+            return proposal("Hello, " + memory.name + ". What can I help with?", "greeting", 500, memory)
+        }
+        return proposal("Hello! What can I help with?", "greeting", 500, memory)
+    }
+    if contains(lower, "my name is ") or first_word(lower, "i'm") {
+        if not same(memory.name, "") {
+            return proposal("Nice to meet you, " + memory.name + ". What can I help with?", "greeting", 500, memory)
+        }
+    }
+    if first_word(lower, "thanks") or first_word(lower, "thank") {
+        return proposal("You're welcome.", "greeting", 500, memory)
+    }
+    if first_word(lower, "bye") or first_word(lower, "goodbye") {
+        return proposal("Goodbye.", "greeting", 500, memory)
+    }
+    return proposal("", "greeting", 500, memory)
+}
+
+function knowledge_reply(text: string, lower: string, memory: Memory) -> Proposal {
+    if contains(lower, "kettle") or contains(lower, "limescale") or contains(lower, "descale") {
+        return proposal("Half fill the kettle with equal parts water and white vinegar, boil it, leave it for half an hour, then rinse thoroughly and boil fresh water twice.", "kettle", 300, memory)
+    }
+    if contains(lower, "how long") and same(memory.topic, "kettle") {
+        return proposal("Half an hour.", "kettle_followup", 300, memory)
+    }
+    if contains(lower, "onions") and contains(lower, "cry") {
+        return proposal("Cutting onions releases irritating sulfur compounds that react with moisture in your eyes.", "facts", 200, memory)
+    }
+    return proposal("", "knowledge", 200, memory)
+}
+
+function turn(text: string, state: ptr<Memory>) -> Proposal {
+    let before: Memory = state[0]
+    let observed: Memory = observe(text, before)
+    let clean: string = lower_ascii(trimmed(text))
+    let mut best: Proposal = proposal("Hello!", "fallback", -1000, observed)
+    best = prefer(best, greeting_reply(text, clean, observed, before), before)
+    best = prefer(best, knowledge_reply(text, clean, observed), before)
+    best = prefer(best, name_reply(text, clean, observed), before)
+
+    let mut after: Memory = best.memory
+    after.lastUser = text
+    after.lastReply = best.reply
+    after.turns = before.turns + 1
+    state[0] = after
+    return best
+}
+
+function read_line() -> InputLine {
+    let buffer: ptr<ByteBuf> = bb_new(128)
+    let mut eof: bool = false
+    let mut n: i32 = 0
+    while true {
+        let c: i32 = getchar()
+        if c < 0 {
+            eof = true
+            break
+        }
+        if c == 10 {
+            break
+        }
+        if c != 13 {
+            bb_putc(buffer, c as u8)
+            n = n + 1
+        }
+    }
+    let line: string = bb_str(buffer)
+    bb_free(buffer)
+    return InputLine { text: line, eof: eof and n == 0 }
+}
+
+function run_self_tests() -> i32 {
+    let mut memory: Memory = fresh_memory()
+    let a: Proposal = turn("hi, i'm Sam", &memory)
+    if not same(a.reply, "Nice to meet you, Sam. What can I help with?") {
+        println("FAIL: greeting and observer")
+        return 1
+    }
+    let b: Proposal = turn("what's my name?", &memory)
+    if not same(b.reply, "You're Sam.") or not same(b.module, "name_recall") {
+        println("FAIL: remembered name and priority")
+        return 2
+    }
+    let c: Proposal = turn("my kettle has limescale", &memory)
+    if not same(c.module, "kettle") {
+        println("FAIL: knowledge responder")
+        return 3
+    }
+    let d: Proposal = turn("how long does that take?", &memory)
+    if not same(d.reply, "Half an hour.") {
+        println("FAIL: inherited topic")
+        return 4
+    }
+    if memory.turns != 4 {
+        println("FAIL: turn history count")
+        return 5
+    }
+    memory = fresh_memory()
+    let e: Proposal = turn("what's my name?", &memory)
+    if not same(e.reply, "You haven't told me your name yet.") {
+        println("FAIL: reset isolation")
+        return 6
+    }
+    let f: Proposal = turn("unmatched nonsense input", &memory)
+    if not same(f.reply, "Hello!") {
+        println("FAIL: fallback")
+        return 7
+    }
+    println("PASS: 6 Flow runtime regression scenarios")
+    return 0
+}
+
+function show_help() {
+    println("Weightless: a rule-based chatbot in Flow")
+    println("Usage: weightless [-p TEXT] [-i] [-v] [-s N] [--self-test]")
+    println("Commands in interactive mode: /help /reset /exit")
+}
+
+function main() -> i32 {
+    let mut hasPrompt: bool = false
+    let mut prompt: string = ""
+    let mut interactiveFlag: bool = false
+    let mut verbose: bool = false
+    let mut i: i32 = 1
+    while i < proc_argc() {
+        let arg: string = proc_argv(i)
+        if same(arg, "-p") or same(arg, "--prompt") {
+            if i + 1 >= proc_argc() {
+                println("Missing prompt text")
+                return 2
+            }
+            i = i + 1
+            prompt = proc_argv(i)
+            hasPrompt = true
+        } elif same(arg, "-i") or same(arg, "--interactive") {
+            interactiveFlag = true
+        } elif same(arg, "-v") or same(arg, "--verbose") {
+            verbose = true
+        } elif same(arg, "-s") or same(arg, "--seed") {
+            if i + 1 >= proc_argc() {
+                println("Missing seed")
+                return 2
+            }
+            i = i + 1
+        } elif same(arg, "--self-test") {
+            return run_self_tests()
+        } elif same(arg, "--help") or same(arg, "-h") {
+            show_help()
+            return 0
+        } elif same(arg, "--version") {
+            println("weightless 0.1.0")
+            return 0
+        } else {
+            println("Unknown option: " + arg)
+            return 2
+        }
+        i = i + 1
+    }
+
+    let interactive: bool = interactiveFlag or (not hasPrompt and isatty(0) != 0)
+    let mut memory: Memory = fresh_memory()
+    if interactive {
+        println("Weightless, written in Flow. No weights or training.")
+        println("Type /help for commands, /reset to forget, /exit to quit.")
+    }
+    if hasPrompt {
+        let result: Proposal = turn(prompt, &memory)
+        if interactive {
+            println("user: " + prompt)
+            println("weightless: " + result.reply)
+        } else {
+            println(result.reply)
+        }
+        if verbose {
+            println("[module: " + result.module + "]")
+        }
+        if not interactive {
+            return 0
+        }
+    }
+    while true {
+        if interactive {
+            print("user: ")
+            let _flushed: i32 = fflush(null)
+        }
+        let line: InputLine = read_line()
+        if line.eof {
+            break
+        }
+        let cmd: string = lower_ascii(trimmed(line.text))
+        if interactive {
+            if same(cmd, "/exit") or same(cmd, "/quit") or same(cmd, "/bye") {
+                break
+            }
+            if same(cmd, "/reset") {
+                memory = fresh_memory()
+                println("New conversation.")
+                continue
+            }
+            if same(cmd, "/help") {
+                show_help()
+                continue
+            }
+            if same(cmd, "") {
+                continue
+            }
+        }
+        let result: Proposal = turn(line.text, &memory)
+        if interactive {
+            println("weightless: " + result.reply)
+        } else {
+            println(result.reply)
+        }
+        if verbose {
+            println("[module: " + result.module + "]")
+        }
+    }
+    return 0
+}

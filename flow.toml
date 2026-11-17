@@ -1,0 +1,9 @@
+[package]
+name = "weightless"
+version = "0.1.0"
+description = "Native Flow port of Hugging Face PyBot's rule-based chatbot"
+author = "Weightless contributors"
+license = "Apache-2.0"
+entry = "src/main.flow"
+
+[dependencies]
