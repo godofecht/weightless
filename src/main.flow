@@ -473,6 +473,7 @@ function run_self_tests() -> i32 {
         println("FAIL: turn history count")
         return 5
     }
+    release_history(memory)
     memory = fresh_memory()
     let e: Proposal = turn("what's my name?", &memory)
     if not same(e.reply, "You haven't told me your name yet.") {
