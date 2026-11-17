@@ -1,0 +1,15 @@
+Weightless
+Copyright 2026 Weightless contributors
+
+A Flow rewrite inspired by PyBot:
+  https://github.com/huggingface/pybot
+  Copyright Hugging Face and PyBot contributors
+  Licensed under Apache License, Version 2.0.
+
+The initial runtime design is adapted from:
+  https://github.com/huggingface/pybot/blob/main/bot/runtime.py
+  https://github.com/huggingface/pybot/blob/main/bot/modules/arbiter.py
+  https://github.com/huggingface/pybot/blob/main/pybot.py
+
+The shipped Flow rules and responses are a small, newly written subset, not a translation
+of PyBot's complete knowledge corpus or safety system. Do not assume parity.
