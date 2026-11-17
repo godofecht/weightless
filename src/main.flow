@@ -213,6 +213,11 @@ function observe(text: string, memory: Memory) -> Memory {
     let lower: string = lower_ascii(text)
     let mut start: i32 = index_of(lower, "my name is ")
     let mut explicitName: bool = false
+    if start != 0 and not (start == 4 and
+        (index_of(lower, "hi, my name is ") == 0 or index_of(lower, "hey my name is ") == 0)) and
+        not (start == 7 and index_of(lower, "hello, my name is ") == 0) {
+        start = -1
+    }
     if start >= 0 {
         explicitName = true
         start = start + 11
@@ -1069,6 +1074,21 @@ function run_self_tests() -> i32 {
         return 68
     }
     release_history(spacedCorrection)
+    let mut embeddedName: Memory = fresh_memory()
+    let _embeddedNameTurn: Proposal = turn("She said my name is Morgan yesterday", &embeddedName)
+    if not same(embeddedName.name, "") or
+       not same(facts_latest(embeddedName.facts, "self", "name"), "") {
+        println("FAIL: embedded explicit name must not set self memory")
+        return 73
+    }
+    release_history(embeddedName)
+    let mut greetingName: Memory = fresh_memory()
+    let _greetingNameTurn: Proposal = turn("Hello, my name is Morgan", &greetingName)
+    if not same(greetingName.name, "Morgan") {
+        println("FAIL: greeting-prefixed explicit name must be observed")
+        return 74
+    }
+    release_history(greetingName)
     let mut quotedSelf: Memory = fresh_memory()
     let _quotedSelfTurn: Proposal = turn("She said I'm Morgan yesterday", &quotedSelf)
     if not same(quotedSelf.name, "") or
@@ -1225,7 +1245,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 72 Flow runtime regression scenarios")
+    println("PASS: 74 Flow runtime regression scenarios")
     return 0
 }
 
