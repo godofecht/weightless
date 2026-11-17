@@ -740,6 +740,35 @@ function run_self_tests() -> i32 {
         return 72
     }
     candidate_set_release(&collectedEmptyCandidates)
+    let mut candidateSource: Memory = fresh_memory()
+    let _candidateSeed: Proposal = turn("hello", &candidateSource)
+    let candidateReading: LineReading = understand_line("hi", candidateSource.topic)
+    let candidateObserved: Memory = run_observers("hi", candidateSource, candidateReading)
+    let mut independentCandidates: CandidateSet = collect_responses("hi", candidateReading, candidateSource, candidateObserved)
+    if independentCandidates.count < 1 {
+        println("FAIL: expected a responder proposal for snapshot ownership")
+        return 82
+    }
+    for i in 0 to independentCandidates.count {
+        if independentCandidates.values[i].memory.recent == candidateObserved.recent {
+            println("FAIL: responder must receive pre-invocation transcript snapshot")
+            return 83
+        }
+        for j in 0 to i {
+            if independentCandidates.values[i].memory.recent == independentCandidates.values[j].memory.recent {
+                println("FAIL: responders must not share transcript snapshot storage")
+                return 84
+            }
+        }
+    }
+    independentCandidates.values[0].memory.recent[0] = TurnRecord { user: "mutated", bot: "mutated", module: "mutated" }
+    if not same(candidateSource.recent[0].user, "hello") {
+        println("FAIL: candidate transcript mutation leaked into session")
+        return 85
+    }
+    release_candidate_transcripts(independentCandidates, candidateObserved)
+    candidate_set_release(&independentCandidates)
+    release_history(candidateSource)
     let mut isolationSource: Memory = fresh_memory()
     let _isolationTurn: Proposal = turn("hello", &isolationSource)
     let mut isolationCopy: Memory = isolate_winning_transcript(isolationSource)
@@ -756,8 +785,8 @@ function run_self_tests() -> i32 {
     release_history(isolationSource)
     let mut candidateMemory: Memory = fresh_memory()
     let _candidateTurn: Proposal = turn("hello", &candidateMemory)
-    let candidateReading: LineReading = understand_line("what is my name?", candidateMemory.topic)
-    let mut isolatedCandidates: CandidateSet = collect_responses("what is my name?", candidateReading, candidateMemory, candidateMemory)
+    let isolationReading: LineReading = understand_line("what is my name?", candidateMemory.topic)
+    let mut isolatedCandidates: CandidateSet = collect_responses("what is my name?", isolationReading, candidateMemory, candidateMemory)
     if isolatedCandidates.count == 0 or isolatedCandidates.values[0].memory.recent == candidateMemory.recent {
         println("FAIL: responder candidate transcript must be isolated")
         return 77
@@ -1344,7 +1373,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 81 Flow runtime regression scenarios")
+    println("PASS: 85 Flow runtime regression scenarios")
     return 0
 }
 
