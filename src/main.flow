@@ -565,9 +565,8 @@ function after_correction(text: string, memory: Memory) -> Memory {
     return after
 }
 
-function after_turn(text: string, winning: Proposal, previous: Memory) -> Memory {
-    let mut after: Memory = winning.memory
-    after = after_correction(text, after)
+function after_transcript(text: string, winning: Proposal, memory: Memory) -> Memory {
+    let mut after: Memory = memory
     after.lastUser = text
     after.lastReply = winning.reply
     after = append_turn(after, TurnRecord {
@@ -575,8 +574,14 @@ function after_turn(text: string, winning: Proposal, previous: Memory) -> Memory
         bot: winning.reply,
         module: winning.module
     })
-    after.turns = previous.turns + 1
     return after
+}
+
+function run_after_hooks(text: string, winning: Proposal, previous: Memory) -> Memory {
+    let corrected: Memory = after_correction(text, winning.memory)
+    let mut recorded: Memory = after_transcript(text, winning, corrected)
+    recorded.turns = previous.turns + 1
+    return recorded
 }
 
 function choose(candidates: CandidateSet, previous: Memory, observed: Memory) -> Proposal {
@@ -640,7 +645,7 @@ function turn_with_candidate_trace(text: string, state: ptr<Memory>, traceCandid
         }
     }
     candidate_set_release(&candidates)
-    state[0] = after_turn(text, winner, previous)
+    state[0] = run_after_hooks(text, winner, previous)
     return winner
 }
 
@@ -1081,6 +1086,18 @@ function run_self_tests() -> i32 {
         println("FAIL: ordered observers must preserve fact updates while clearing unrelated topic")
         return 70
     }
+    let mut hookMemory: Memory = fresh_memory()
+    let hookReply: Proposal = turn("  call me Iris", &hookMemory)
+    let hookRecord: TurnRecord = recent_turn(hookMemory, 1)
+    if not same(hookMemory.name, "Iris") or
+       not same(hookRecord.user, "  call me Iris") or
+       not same(hookRecord.bot, hookReply.reply) or
+       not same(hookRecord.module, hookReply.module) or
+       hookMemory.turns != 1 {
+        println("FAIL: ordered correction and transcript after-hooks")
+        return 70
+    }
+    release_history(hookMemory)
     let mut safetyMemory: Memory = fresh_memory()
     safetyMemory.lastReply = "Careful safety response"
     let safetyFirst: Proposal = proposal("Careful safety response", "safety", 9000, safetyMemory)
@@ -1199,7 +1216,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 70 Flow runtime regression scenarios")
+    println("PASS: 71 Flow runtime regression scenarios")
     return 0
 }
 
