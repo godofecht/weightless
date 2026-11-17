@@ -15,7 +15,7 @@ Target backend: Flow's self-hosted C backend
 6. Keep state across piped lines; reset it on `/reset` in interactive mode.
 
 **Current limits:** The Flow port stores a fixed set of conversation attributes
-and every recorded turn in a dynamically growing native Flow memory buffer. The buffer is freed when the conversation resets or exits. The full transcript is available within the process, but this is not PyBot's complete structured memory model. Unlike PyBot, Weightless has no general-purpose dictionary memory or persistent journal.
+and every recorded turn in a dynamically growing native Flow memory buffer. The buffer is freed when the conversation resets or exits. The full transcript is available within the process, but this is not PyBot's complete structured memory model. Unlike PyBot, Weightless has no general-purpose dictionary memory or persistent journal. It now maintains an immutable linked history for the first recognized facts: self/relative names, jobs and locations, with source utterance and turn. This fact schema is not yet a complete memory implementation; supported subjects and fields are deliberately narrow.
 PyBot's arbiter has many additional rules, especially safety precedence, topic
 specificity, and refusal handling. Weightless does not implement those policies yet.
 
@@ -26,8 +26,8 @@ specificity, and refusal handling. Weightless does not implement those policies 
 | `bot/runtime.py` | `src/main.flow` | Partial observable pipeline, growable candidate collection, value-state copies, dynamically growing transcript and a correction hook |
 | `bot/modules/arbiter.py` | `choose`, `prefer` | Arbitrary candidate count, priority and non-repeat tie-break only |
 | `bot/modules/greeting.py` | `greeting_reply` | Tiny deterministic subset |
-| `bot/modules/memory_store.py` | `Memory`, `observe`, `name_reply`, `recall_reply` | Name and latest-turn recall only |
-| `bot/compose/*`, `bot/knowledge/*` | `knowledge_reply` and `src/knowledge.flow` | Three example answer families plus 8 source-derived knowledge entries |
+| `bot/modules/memory_store.py` | `Memory`, `observe`, `name_reply`, `recall_reply`, `fact_reply` | Name, latest-turn, job, city, and named-relative recall subsets |
+| `bot/memory/facts.py` | `src/facts.flow` | Immutable, attributed fact nodes with source utterance and turn; only a small observation/retrieval subset |\n| `bot/compose/*`, `bot/knowledge/*` | `knowledge_reply` and `src/knowledge.flow` | Three example answer families plus 8 source-derived knowledge entries |
 | `pybot.py` | `main`, `read_line` | Basic CLI; timing and terminal clearing omitted |
 
 ## Not ported
@@ -52,8 +52,8 @@ The `-s/--seed` argument is accepted for compatibility but has no effect
 until candidate wording is randomized. The `-v` option prints a module tag,
 not PyBot's millisecond timings.
 
-CI checks Flow's native compiler, thirty-three runtime regression scenarios and representative CLI contracts.
-A pull-request-only differential job checks 44 fixture turns against upstream PyBot
+CI checks Flow's native compiler, forty-one runtime regression scenarios and representative CLI contracts.
+A pull-request-only differential job checks 56 fixture turns against upstream PyBot
 at pinned commit `7d63c7fbebb44c7e466e5c8b5c1f341ab767929e`.
 The original Python runtime is used only as the external reference test oracle.
 The knowledge corpus is loaded natively from `data/knowledge.tsv`, or the path set in `WEIGHTLESS_KNOWLEDGE`.
