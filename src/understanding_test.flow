@@ -1,0 +1,72 @@
+import .understanding { LineReading, understand_line }
+
+extern {
+    function strcmp(a: string, b: string) -> i32
+}
+
+function equal(a: string, b: string) -> bool {
+    return strcmp(a, b) == 0
+}
+
+function main() -> i32 {
+    let empty: LineReading = understand_line(" \t ", "")
+    if not equal(empty.kind, "empty") or not equal(empty.intent, "empty") {
+        println("FAIL: empty reading")
+        return 1
+    }
+    let greeting: LineReading = understand_line(" Hello ", "")
+    if not equal(greeting.kind, "greeting") or not equal(greeting.clean, "hello") {
+        println("FAIL: greeting normalization")
+        return 2
+    }
+    let thankYou: LineReading = understand_line("Thanks, that helped", "")
+    if not equal(thankYou.kind, "thanks") or not equal(thankYou.intent, "thanks") {
+        println("FAIL: gratitude is not a question")
+        return 3
+    }
+    let embeddedQuestion: LineReading = understand_line(
+        "Thanks, one more thing - how do i clean the oven?", ""
+    )
+    if not equal(embeddedQuestion.kind, "question") or not equal(embeddedQuestion.wants, "steps") {
+        println("FAIL: later question survives politeness prefix")
+        return 4
+    }
+    let timeAsk: LineReading = understand_line("How long does that take?", "kettle")
+    if not equal(timeAsk.kind, "question") or not equal(timeAsk.wants, "time") or
+       not equal(timeAsk.topic, "kettle") or not timeAsk.followup {
+        println("FAIL: follow-up answer shape and inherited topic")
+        return 5
+    }
+    let freshAsk: LineReading = understand_line("How long does a train take?", "kettle")
+    if not equal(freshAsk.topic, "transport") or freshAsk.followup {
+        println("FAIL: a new named topic must not inherit a stale kettle")
+        return 6
+    }
+    let quantity: LineReading = understand_line("How much does that cost?", "")
+    if not equal(quantity.wants, "amount") {
+        println("FAIL: amount questions")
+        return 7
+    }
+    let why: LineReading = understand_line("Why did the engine fail?", "")
+    if not equal(why.wants, "reason") {
+        println("FAIL: reason question")
+        return 8
+    }
+    let yesNo: LineReading = understand_line("Can I do this?", "")
+    if not equal(yesNo.wants, "yesno") {
+        println("FAIL: yes-no question")
+        return 9
+    }
+    let correction: LineReading = understand_line("Actually, I meant the kettle", "")
+    if not equal(correction.intent, "correction") or not equal(correction.topic, "kettle") {
+        println("FAIL: correction intent with specific topic")
+        return 10
+    }
+    let multiSpace: LineReading = understand_line("   HELLO    there  ", "")
+    if not equal(multiSpace.clean, "hello there") {
+        println("FAIL: collapse whitespace without losing words")
+        return 11
+    }
+    println("PASS: 11 structured-understanding Flow scenarios")
+    return 0
+}

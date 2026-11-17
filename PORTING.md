@@ -27,7 +27,7 @@ specificity, and refusal handling. Weightless does not implement those policies 
 | `bot/modules/arbiter.py` | `choose`, `prefer` | Arbitrary candidate count, priority and non-repeat tie-break only |
 | `bot/modules/greeting.py` | `greeting_reply` | Tiny deterministic subset |
 | `bot/modules/memory_store.py` | `Memory`, `observe`, `name_reply`, `recall_reply`, `fact_reply` | Name, latest-turn, job, city, and named-relative recall subsets |
-| `bot/memory/facts.py` | `src/facts.flow` | Immutable, attributed fact nodes with source utterance and turn; only a small observation/retrieval subset |\n| `bot/compose/*`, `bot/knowledge/*` | `knowledge_reply` and `src/knowledge.flow` | Three example answer families plus 8 source-derived knowledge entries |
+| `bot/understanding/{normalize,kinds,topics,references}.py` | `src/understanding.flow` | Partial shared line reading: ASCII normalization, kind, intent, answer shape and short follow-up topic inheritance |\n| `bot/memory/facts.py` | `src/facts.flow` | Immutable, attributed fact nodes with source utterance and turn; only a small observation/retrieval subset |\n| `bot/compose/*`, `bot/knowledge/*` | `knowledge_reply` and `src/knowledge.flow` | Three example answer families plus 8 source-derived knowledge entries |
 | `pybot.py` | `main`, `read_line` | Basic CLI; timing and terminal clearing omitted |
 
 ## Not ported
@@ -52,8 +52,8 @@ The `-s/--seed` argument is accepted for compatibility but has no effect
 until candidate wording is randomized. The `-v` option prints a module tag,
 not PyBot's millisecond timings.
 
-CI checks Flow's native compiler, forty-one runtime regression scenarios and representative CLI contracts.
-A pull-request-only differential job checks 56 fixture turns against upstream PyBot
+CI checks Flow's native compiler, forty-three runtime regression scenarios plus eleven standalone understanding tests and representative CLI contracts.
+A pull-request-only differential job checks 61 fixture turns against upstream PyBot
 at pinned commit `7d63c7fbebb44c7e466e5c8b5c1f341ab767929e`.
 The original Python runtime is used only as the external reference test oracle.
 The knowledge corpus is loaded natively from `data/knowledge.tsv`, or the path set in `WEIGHTLESS_KNOWLEDGE`.
@@ -68,7 +68,7 @@ Only passing CI on the target commit establishes successful execution.
 
 ## Next increments
 
-Complete observer/after-hook dispatch, correct independent nested-state snapshots, robust fallbacks and per-module failure isolation. The current snapshots are struct-value copies with an intentionally shared read-only transcript: full PyBot-style deep mutable dictionaries remain unimplemented. Machine-readable `--trace-candidates` output now exposes each nonempty proposal to the differential harness. Then port safety precedence,
+Complete observer/after-hook dispatch, correct independent nested-state snapshots, robust fallbacks and per-module failure isolation. The current snapshots are struct-value copies with an intentionally shared read-only transcript: full PyBot-style deep mutable dictionaries remain unimplemented. Machine-readable `--trace-candidates` output now exposes each nonempty proposal to the differential harness. The shared reading now prevents greeting-prefixed questions from preempting knowledge replies and clears stale kettle context when a fresh question names a different topic. Its normalization, categorization and reference coverage remain very limited. Then port safety precedence,
 topic-specialist arbitration and topic inheritance tests.
 Expand the current differential fixture corpus and record reference memory
 transitions as well as replies and modules. Reimplement source modules one

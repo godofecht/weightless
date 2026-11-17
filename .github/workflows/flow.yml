@@ -19,6 +19,9 @@ jobs:
       - name: Run Flow runtime regressions
         working-directory: flow
         run: ./flow run ../weightless/src/main.flow -- --self-test
+      - name: Run Flow structured-understanding regressions
+        working-directory: flow
+        run: ./flow run ../weightless/src/understanding_test.flow
       - name: Check one-shot CLI
         working-directory: flow
         shell: bash

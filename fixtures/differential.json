@@ -162,6 +162,21 @@
         "my job is software engineer",
         "what do i do for work?"
       ]
+    },
+    {
+      "name": "new_question_overrides_stale_topic",
+      "turns": [
+        "my kettle has limescale",
+        "how long does that take?",
+        "how long does a train take?"
+      ]
+    },
+    {
+      "name": "greeting_prefix_on_real_question",
+      "turns": [
+        "Hi, should i get a laptop stand?",
+        "Thanks, that helped"
+      ]
     }
   ]
 }

@@ -1,0 +1,210 @@
+# Source-grounded subset of bot/understanding/{normalize,kinds,topics,references}.py.
+# Upstream: huggingface/pybot@7d63c7fbebb44c7e466e5c8b5c1f341ab767929e
+# A single reading is shared by responders. These categories are incomplete.
+
+import std.bytebuf { ByteBuf, bb_new, bb_putc, bb_str, bb_free }
+
+extern {
+    function strlen(s: string) -> i64
+    function strcmp(a: string, b: string) -> i32
+    function strstr(haystack: string, needle: string) -> ptr<u8>
+    function strncmp(a: string, b: string, length: i64) -> i32
+}
+
+export struct LineReading {
+    raw: string,
+    clean: string,
+    kind: string,
+    intent: string,
+    wants: string,
+    topic: string,
+    followup: bool
+}
+
+function under_same(a: string, b: string) -> bool {
+    return strcmp(a, b) == 0
+}
+
+function under_contains(text: string, needle: string) -> bool {
+    return strstr(text, needle) != null
+}
+
+function under_space(c: u8) -> bool {
+    return c == 32 or c == 9 or c == 10 or c == 13
+}
+
+function under_clean(text: string) -> string {
+    let bytes: ptr<u8> = text as ptr<u8>
+    let n: i32 = strlen(text) as i32
+    let mut first: i32 = 0
+    let mut last: i32 = n
+    while first < last and under_space(bytes[first]) {
+        first = first + 1
+    }
+    while last > first and under_space(bytes[last - 1]) {
+        last = last - 1
+    }
+    let out: ptr<ByteBuf> = bb_new(64)
+    let mut inSpace: bool = false
+    for i in first to last {
+        let mut c: u8 = bytes[i]
+        if under_space(c) {
+            if not inSpace {
+                bb_putc(out, 32)
+                inSpace = true
+            }
+        } else {
+            if c >= 65 and c <= 90 {
+                c = c + 32
+            }
+            bb_putc(out, c)
+            inSpace = false
+        }
+    }
+    let clean: string = bb_str(out)
+    bb_free(out)
+    return clean
+}
+
+function under_starts_word(text: string, word: string) -> bool {
+    let n: i64 = strlen(text)
+    let m: i64 = strlen(word)
+    if n < m or strncmp(text, word, m) != 0 {
+        return false
+    }
+    if n == m {
+        return true
+    }
+    let byte: u8 = (text as ptr<u8>)[m as i32]
+    return under_space(byte) or byte == 44 or byte == 33 or byte == 46 or byte == 63
+}
+
+function under_explicit_topic(clean: string) -> string {
+    if under_contains(clean, "kettle") or under_contains(clean, "limescale") or
+       under_contains(clean, "descale") {
+        return "kettle"
+    }
+    if under_contains(clean, "train") or under_contains(clean, "railway") {
+        return "transport"
+    }
+    if under_contains(clean, "microwave") or under_contains(clean, "pasta") or
+       under_contains(clean, "vegetables") {
+        return "cooking"
+    }
+    if under_contains(clean, "wall socket") or under_contains(clean, "plug") or
+       under_contains(clean, "power cable") {
+        return "electricity"
+    }
+    if under_contains(clean, "laptop stand") or under_contains(clean, "monitor") {
+        return "technology"
+    }
+    return ""
+}
+
+function under_question(clean: string) -> bool {
+    if under_contains(clean, "?") {
+        return true
+    }
+    if under_starts_word(clean, "what") or under_starts_word(clean, "whats") or
+       under_starts_word(clean, "what's") or under_starts_word(clean, "why") or
+       under_starts_word(clean, "how") or under_starts_word(clean, "where") or
+       under_starts_word(clean, "when") or under_starts_word(clean, "who") or
+       under_starts_word(clean, "which") or under_starts_word(clean, "should") or
+       under_starts_word(clean, "can") or under_starts_word(clean, "could") or
+       under_starts_word(clean, "would") or under_starts_word(clean, "do") or
+       under_starts_word(clean, "does") or under_starts_word(clean, "is") or
+       under_starts_word(clean, "are") {
+        return true
+    }
+    if under_contains(clean, "how do i ") or under_contains(clean, "which one ") or
+       under_contains(clean, "what should i ") or under_contains(clean, "any tips for ") {
+        return true
+    }
+    return false
+}
+
+function under_wants(clean: string) -> string {
+    if under_contains(clean, "how long") or under_starts_word(clean, "when") or
+       under_contains(clean, "what time") {
+        return "time"
+    }
+    if under_contains(clean, "how many") or under_contains(clean, "how much") {
+        return "amount"
+    }
+    if under_starts_word(clean, "where") {
+        return "place"
+    }
+    if under_starts_word(clean, "who") {
+        return "person"
+    }
+    if under_starts_word(clean, "why") {
+        return "reason"
+    }
+    if under_contains(clean, "how do ") or under_contains(clean, "how to ") or
+       under_contains(clean, "what are the steps") {
+        return "steps"
+    }
+    if under_starts_word(clean, "which") or under_contains(clean, "which one") {
+        return "pick"
+    }
+    if under_starts_word(clean, "what") and under_contains(clean, " is ") {
+        return "meaning"
+    }
+    if under_starts_word(clean, "should") or under_starts_word(clean, "can") or
+       under_starts_word(clean, "is") or under_starts_word(clean, "are") or
+       under_starts_word(clean, "do") {
+        return "yesno"
+    }
+    return ""
+}
+
+export function understand_line(raw: string, previousTopic: string) -> LineReading {
+    let clean: string = under_clean(raw)
+    let mut reading: LineReading = LineReading {
+        raw: raw, clean: clean, kind: "statement", intent: "news",
+        wants: "", topic: "", followup: false
+    }
+
+    if under_same(clean, "") {
+        reading.kind = "empty"
+        reading.intent = "empty"
+        return reading
+    }
+    if under_question(clean) {
+        reading.kind = "question"
+        reading.intent = "question"
+        reading.wants = under_wants(clean)
+    } elif under_same(clean, "hi") or under_same(clean, "hello") or
+           under_same(clean, "hey") or under_same(clean, "hi there") or
+           under_same(clean, "hello there") {
+        reading.kind = "greeting"
+        reading.intent = "greeting"
+    } elif under_starts_word(clean, "thanks") or under_starts_word(clean, "thank") {
+        reading.kind = "thanks"
+        reading.intent = "thanks"
+    } elif under_contains(clean, "i meant ") or under_contains(clean, "call me ") {
+        reading.intent = "correction"
+    } elif under_starts_word(clean, "tell") or under_starts_word(clean, "show") or
+           under_starts_word(clean, "explain") {
+        reading.intent = "request"
+    } elif under_contains(clean, "i'm sad") or under_contains(clean, "i'm anxious") or
+           under_contains(clean, "i am worried") or under_contains(clean, "i feel low") {
+        reading.intent = "feeling"
+    }
+
+    let explicit: string = under_explicit_topic(clean)
+    let pointsBack: bool = under_contains(clean, "that") or
+                           under_contains(clean, "what about") or
+                           under_starts_word(clean, "and") or
+                           under_starts_word(clean, "what next") or
+                           under_contains(clean, "and then")
+    reading.followup = reading.kind == "question" and
+                       not under_same(previousTopic, "") and
+                       under_same(explicit, "") and pointsBack
+    if not under_same(explicit, "") {
+        reading.topic = explicit
+    } elif reading.followup {
+        reading.topic = previousTopic
+    }
+    return reading
+}
