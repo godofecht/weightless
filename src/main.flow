@@ -385,7 +385,7 @@ function run_self_tests() -> i32 {
         println("FAIL: contextual recall")
         return 9
     }
-    if memory.recentCount != 2 or memory.turns != 2 {
+    if memory.recentCount != 3 or memory.turns != 3 {
         println("FAIL: transcript length")
         return 10
     }
