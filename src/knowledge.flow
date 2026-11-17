@@ -72,12 +72,40 @@ function any_alternative(text: string, alternatives: string) -> bool {
     return false
 }
 
+# Original lookup.py: WORD_WEIGHT = 2, PHRASE_WEIGHT = 3, MIN_SCORE = 4.
+# This is the exact literal word/phrase weight subset, not its full morphology
+# or ambiguity-aware scoring algorithm.
+export function knowledge_match_score(text: string, alternatives: string) -> i32 {
+    let p: ptr<u8> = alternatives as ptr<u8>
+    let n: i32 = strlen(alternatives) as i32
+    let mut first: i32 = 0
+    let mut best: i32 = 0
+    let mut i: i32 = 0
+    while i <= n {
+        if i == n or p[i] == 124 {
+            if segment_in_text(text, alternatives, first, i) {
+                let mut weight: i32 = 2
+                for j in first to i {
+                    if p[j] == 32 {
+                        weight = 3
+                    }
+                }
+                if weight > best {
+                    best = weight
+                }
+            }
+            first = i + 1
+        }
+        i = i + 1
+    }
+    return best
+}
+
 function entry(text: string, id: string, topicWords: string, askingWords: string,
                avoidWords: string, bias: i32, reply: string) -> KnowledgeHit {
-    if not any_alternative(text, topicWords) {
-        return KnowledgeHit { reply: "", module: "", entry: "", score: 0 }
-    }
-    if not any_alternative(text, askingWords) {
+    let first: i32 = knowledge_match_score(text, topicWords)
+    let second: i32 = knowledge_match_score(text, askingWords)
+    if first == 0 or second == 0 {
         return KnowledgeHit { reply: "", module: "", entry: "", score: 0 }
     }
     if any_alternative(text, avoidWords) {
@@ -87,7 +115,7 @@ function entry(text: string, id: string, topicWords: string, askingWords: string
         reply: reply,
         module: "answers",
         entry: id,
-        score: 4 + bias
+        score: first + second + bias
     }
 }
 

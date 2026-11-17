@@ -1,0 +1,21 @@
+name: Native Flow knowledge matcher
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  scorer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: weightless
+      - uses: actions/checkout@v4
+        with:
+          repository: flooooooooooow/flow
+          ref: main
+          path: flow
+      - name: Run source-weighting and exclusion regressions
+        working-directory: flow
+        run: ./flow run ../weightless/src/knowledge_test.flow
