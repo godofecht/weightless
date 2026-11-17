@@ -1,0 +1,82 @@
+# Immutable, source-attributed conversation facts.
+# Inspired by huggingface/pybot bot/memory/facts.py and bot/modules/memory_store.py.
+# Nodes are never mutated after insertion, so candidate state copies can safely
+# share prior nodes without a losing candidate altering committed memory.
+
+extern {
+    function malloc(size: i64) -> ptr<void>
+    function free(p: ptr<void>) -> void
+    function strcmp(a: string, b: string) -> i32
+}
+
+export struct FactNode {
+    owner: string,
+    key: string,
+    value: string,
+    source: string,
+    turn: i32,
+    previous: ptr<FactNode>
+}
+
+export function facts_note(
+    head: ptr<FactNode>, owner: string, key: string,
+    value: string, source: string, turn: i32
+) -> ptr<FactNode> {
+    if strcmp(owner, "") == 0 or strcmp(key, "") == 0 or strcmp(value, "") == 0 {
+        return head
+    }
+    let node: ptr<FactNode> = malloc(sizeof<FactNode>()) as ptr<FactNode>
+    if node == null {
+        return head
+    }
+    node[0] = FactNode {
+        owner: owner,
+        key: key,
+        value: value,
+        source: source,
+        turn: turn,
+        previous: head
+    }
+    return node
+}
+
+export function facts_latest(head: ptr<FactNode>, owner: string, key: string) -> string {
+    let mut node: ptr<FactNode> = head
+    while node != null {
+        if strcmp(node[0].owner, owner) == 0 and strcmp(node[0].key, key) == 0 {
+            return node[0].value
+        }
+        node = node[0].previous
+    }
+    return ""
+}
+
+export function facts_latest_turn(head: ptr<FactNode>, owner: string, key: string) -> i32 {
+    let mut node: ptr<FactNode> = head
+    while node != null {
+        if strcmp(node[0].owner, owner) == 0 and strcmp(node[0].key, key) == 0 {
+            return node[0].turn
+        }
+        node = node[0].previous
+    }
+    return 0
+}
+
+export function facts_count(head: ptr<FactNode>) -> i32 {
+    let mut count: i32 = 0
+    let mut node: ptr<FactNode> = head
+    while node != null {
+        count = count + 1
+        node = node[0].previous
+    }
+    return count
+}
+
+export function facts_release(head: ptr<FactNode>) {
+    let mut node: ptr<FactNode> = head
+    while node != null {
+        let previous: ptr<FactNode> = node[0].previous
+        free(node as ptr<void>)
+        node = previous
+    }
+}
