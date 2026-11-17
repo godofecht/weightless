@@ -171,7 +171,9 @@ function observe(text: string, memory: Memory) -> Memory {
     let mut next: Memory = memory
     let lower: string = lower_ascii(text)
     let mut start: i32 = index_of(lower, "my name is ")
+    let mut explicitName: bool = false
     if start >= 0 {
+        explicitName = true
         start = start + 11
     } else {
         start = index_of(lower, "i'm ")
@@ -187,7 +189,10 @@ function observe(text: string, memory: Memory) -> Memory {
     if start >= 0 {
         let name: string = extract_word(text, start)
         if not same(name, "") {
-            next.name = name
+            let initial: u8 = (name as ptr<u8>)[0]
+            if explicitName or (initial >= 65 and initial <= 90) {
+                next.name = name
+            }
         }
     }
     if contains(lower, "kettle") or contains(lower, "limescale") or contains(lower, "descale") {
@@ -634,6 +639,19 @@ function run_self_tests() -> i32 {
         println("FAIL: post-choice correction hook")
         return 32
     }
+    let mut unidentified: Memory = fresh_memory()
+    let _mood: Proposal = turn("i'm hungry", &unidentified)
+    let unknown: Proposal = turn("what's my name?", &unidentified)
+    if not same(unknown.reply, "You haven't told me your name yet.") {
+        println("FAIL: ordinary adjective incorrectly stored as name")
+        return 34
+    }
+    let _explicitLower: Proposal = turn("my name is alex", &unidentified)
+    let explicitRecall: Proposal = turn("what's my name?", &unidentified)
+    if not same(explicitRecall.reply, "You're alex.") {
+        println("FAIL: explicit lowercase name introduction")
+        return 35
+    }
     let mut emptyCandidates: CandidateSet = candidate_set_new()
     let emptyPicked: Proposal = choose(emptyCandidates, corrected, corrected)
     if not same(emptyPicked.module, "fallback") or not same(emptyPicked.reply, "Hello!") {
@@ -641,13 +659,14 @@ function run_self_tests() -> i32 {
         return 33
     }
     candidate_set_release(&emptyCandidates)
+    release_history(unidentified)
     release_history(corrected)
     release_history(updated)
     release_history(domainMemory)
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 31 Flow runtime regression scenarios")
+    println("PASS: 33 Flow runtime regression scenarios")
     return 0
 }
 
