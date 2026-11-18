@@ -1597,7 +1597,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 102 Flow runtime regression scenarios")
+    println("PASS: 106 Flow runtime regression scenarios")
     return 0
 }
 
