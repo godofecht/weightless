@@ -834,6 +834,31 @@ function read_line() -> InputLine {
 }
 
 function run_self_tests() -> i32 {
+    let durationFollowup: LineReading = understand_line("How long?", "kettle")
+    if not durationFollowup.followup or not same(durationFollowup.topic, "kettle") or
+       not same(durationFollowup.wants, "time") {
+        println("FAIL: elliptical duration question must retain active kettle topic")
+        return 116
+    }
+    let durationNoContext: LineReading = understand_line("How long?", "")
+    if durationNoContext.followup or not same(durationNoContext.topic, "") {
+        println("FAIL: duration question without context must not invent a topic")
+        return 117
+    }
+    let durationExplicit: LineReading = understand_line("How long is the train?", "kettle")
+    if durationExplicit.followup or not same(durationExplicit.topic, "transport") {
+        println("FAIL: explicit duration topic must override prior context")
+        return 118
+    }
+    let mut durationMemory: Memory = fresh_memory()
+    durationMemory.topic = "kettle"
+    let durationAnswer: Proposal = turn("How long?", &durationMemory)
+    if not same(durationAnswer.module, "kettle_followup") or
+       not same(durationAnswer.reply, "Half an hour.") {
+        println("FAIL: elliptical duration follow-up must reach kettle specialist")
+        return 119
+    }
+    release_history(durationMemory)
     let parkingReading: LineReading = understand_line("Is parking on the pavement legal?", "")
     if not same(parkingReading.topic, "parking") or not same(parkingReading.kind, "question") {
         println("FAIL: pavement parking question must set distinct parking topic")
@@ -1703,7 +1728,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 115 Flow runtime regression scenarios")
+    println("PASS: 119 Flow runtime regression scenarios")
     return 0
 }
 
