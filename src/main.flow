@@ -274,6 +274,16 @@ function observe(text: string, memory: Memory) -> Memory {
             owner = "partner"
             prefix = "my partner's name is "
         }
+        if personStart < 0 {
+            personStart = index_of(lower, "my friend's name is ")
+            owner = "friend"
+            prefix = "my friend's name is "
+        }
+        if personStart < 0 {
+            personStart = index_of(lower, "my child's name is ")
+            owner = "child"
+            prefix = "my child's name is "
+        }
         if personStart >= 0 {
             let otherName: string = extract_fact_value(text, personStart + (strlen(prefix) as i32), 2)
             next.facts = facts_note(next.facts, owner, "name", otherName, text, next.turns + 1)
@@ -491,6 +501,10 @@ function fact_reply(lower: string, memory: Memory) -> Proposal {
     }
     if contains(lower, "partner's name") {
         owner = "partner"
+    } elif contains(lower, "friend's name") {
+        owner = "friend"
+    } elif contains(lower, "child's name") {
+        owner = "child"
     }
     if not same(owner, "") and
        (contains(lower, "what") or contains(lower, "remember") or contains(lower, "tell me")) {
@@ -905,6 +919,33 @@ function run_self_tests() -> i32 {
         return 94
     }
     release_history(partnerMemory)
+    let mut friendMemory: Memory = fresh_memory()
+    let _friendIntro: Proposal = turn("my friend's name is Alex", &friendMemory)
+    let friendRecall: Proposal = turn("what is my friend's name?", &friendMemory)
+    if not same(friendRecall.module, "fact_recall") or not same(friendRecall.reply, "Your friend's name is Alex.") {
+        println("FAIL: friend name attribution and recall")
+        return 95
+    }
+    let _friendRevision: Proposal = turn("my friend's name is Robin", &friendMemory)
+    let friendUpdated: Proposal = turn("what is my friend's name?", &friendMemory)
+    if not same(friendUpdated.reply, "Your friend's name is Robin.") or facts_count(friendMemory.facts) != 2 {
+        println("FAIL: friend correction must preserve history")
+        return 96
+    }
+    release_history(friendMemory)
+    let mut childMemory: Memory = fresh_memory()
+    let childUnknown: Proposal = turn("what is my child's name?", &childMemory)
+    if not same(childUnknown.module, "fact_recall") or not same(childUnknown.reply, "You haven't told me your child's name.") {
+        println("FAIL: unknown child name recall")
+        return 97
+    }
+    let _childIntro: Proposal = turn("my child's name is Casey", &childMemory)
+    let childRecall: Proposal = turn("what is my child's name?", &childMemory)
+    if not same(childRecall.reply, "Your child's name is Casey.") {
+        println("FAIL: child name attribution and recall")
+        return 98
+    }
+    release_history(childMemory)
     let mut memory: Memory = fresh_memory()
     let a: Proposal = turn("hi, i'm Sam", &memory)
     if not same(a.reply, "Nice to meet you, Sam. What can I help with?") {
@@ -1459,7 +1500,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 90 Flow runtime regression scenarios")
+    println("PASS: 98 Flow runtime regression scenarios")
     return 0
 }
 
