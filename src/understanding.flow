@@ -226,7 +226,11 @@ export function understand_line(raw: string, previousTopic: string) -> LineReadi
                            under_contains(clean, "what about") or
                            under_starts_word(clean, "and") or
                            under_starts_word(clean, "what next") or
-                           under_contains(clean, "and then")
+                           under_contains(clean, "and then") or
+                           under_same(clean, "how long?") or
+                           under_same(clean, "how long") or
+                           under_same(clean, "for how long?") or
+                           under_same(clean, "for how long")
     reading.followup = reading.kind == "question" and
                        not under_same(previousTopic, "") and
                        under_same(explicit, "") and pointsBack
