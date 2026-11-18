@@ -453,6 +453,9 @@ function greeting_reply(text: string, lower: string, memory: Memory, previous: M
 function knowledge_reply(text: string, lower: string, memory: Memory) -> Proposal {
     let hit: KnowledgeHit = knowledge_lookup(lower)
     if hit.score > 0 {
+        if same(hit.entry, "power-hot") {
+            return proposal(hit.reply, hit.module, 9000 + hit.score, memory)
+        }
         return proposal(hit.reply, hit.module, 300 + hit.score, memory)
     }
     if contains(lower, "kettle") or contains(lower, "limescale") or contains(lower, "descale") {
@@ -834,6 +837,22 @@ function read_line() -> InputLine {
 }
 
 function run_self_tests() -> i32 {
+    let safetyKnowledgeMemory: Memory = fresh_memory()
+    let hotSocket: Proposal = knowledge_reply("is a hot plug socket safe?", "is a hot plug socket safe?", safetyKnowledgeMemory)
+    if hotSocket.priority < 9000 or not same(hotSocket.module, "answers") {
+        println("FAIL: dangerous hot socket knowledge must enter safety band")
+        return 120
+    }
+    let deskStand: Proposal = knowledge_reply("should i get a laptop stand?", "should i get a laptop stand?", safetyKnowledgeMemory)
+    if deskStand.priority >= 9000 {
+        println("FAIL: ordinary desk knowledge must not enter safety band")
+        return 121
+    }
+    let safetyKnowledgeWinner: Proposal = prefer(hotSocket, proposal("Unrelated answer", "general", 8999, safetyKnowledgeMemory), safetyKnowledgeMemory)
+    if not same(safetyKnowledgeWinner.reply, hotSocket.reply) {
+        println("FAIL: electrical safety knowledge must outrank general answers")
+        return 122
+    }
     let durationFollowup: LineReading = understand_line("How long?", "kettle")
     if not durationFollowup.followup or not same(durationFollowup.topic, "kettle") or
        not same(durationFollowup.wants, "time") {
@@ -1728,7 +1747,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 119 Flow runtime regression scenarios")
+    println("PASS: 122 Flow runtime regression scenarios")
     return 0
 }
 
