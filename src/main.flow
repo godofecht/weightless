@@ -628,10 +628,35 @@ function run_after_hooks(text: string, winning: Proposal, previous: Memory) -> M
     return recorded
 }
 
+function topic_specialist_fit(candidate: Proposal, topic: string) -> bool {
+    if same(topic, "kettle") {
+        return same(candidate.module, "kettle") or same(candidate.module, "kettle_followup")
+    }
+    return false
+}
+
+function prefer_with_topic(current: Proposal, challenger: Proposal, memory: Memory, topic: string) -> Proposal {
+    if current.priority >= 9000 or challenger.priority >= 9000 {
+        return prefer(current, challenger, memory)
+    }
+    if current.priority >= 7000 or challenger.priority >= 7000 {
+        return prefer(current, challenger, memory)
+    }
+    let currentFits: bool = topic_specialist_fit(current, topic)
+    let challengerFits: bool = topic_specialist_fit(challenger, topic)
+    if challengerFits and not currentFits and not same(challenger.reply, "") {
+        return challenger
+    }
+    if currentFits and not challengerFits {
+        return current
+    }
+    return prefer(current, challenger, memory)
+}
+
 function choose(candidates: CandidateSet, previous: Memory, observed: Memory) -> Proposal {
     let mut winner: Proposal = proposal("Hello!", "fallback", -1000, observed)
     for i in 0 to candidates.count {
-        winner = prefer(winner, candidates.values[i], previous)
+        winner = prefer_with_topic(winner, candidates.values[i], previous, observed.topic)
     }
     return winner
 }
@@ -793,6 +818,28 @@ function read_line() -> InputLine {
 }
 
 function run_self_tests() -> i32 {
+    let arbiterMemory: Memory = fresh_memory()
+    let generalist: Proposal = proposal("General answer", "general", 800, arbiterMemory)
+    let specialist: Proposal = proposal("Kettle answer", "kettle", 300, arbiterMemory)
+    let emergency: Proposal = proposal("Emergency answer", "safety", 9000, arbiterMemory)
+    if not same(prefer_with_topic(generalist, specialist, arbiterMemory, "kettle").module, "kettle") {
+        println("FAIL: matching topic specialist must beat unrelated generalist")
+        return 103
+    }
+    if not same(prefer_with_topic(specialist, generalist, arbiterMemory, "kettle").module, "kettle") {
+        println("FAIL: unrelated generalist must not displace topic specialist")
+        return 104
+    }
+    if not same(prefer_with_topic(specialist, emergency, arbiterMemory, "kettle").module, "safety") {
+        println("FAIL: safety band must override topic specialist")
+        return 105
+    }
+    let recallCandidate: Proposal = proposal("Memory answer", "recall", 7000, arbiterMemory)
+    if not same(prefer_with_topic(recallCandidate, specialist, arbiterMemory, "kettle").module, "recall") {
+        println("FAIL: recall band must not be displaced by inherited topic")
+        return 106
+    }
+
     let mut faultMemory: Memory = fresh_memory()
     let _faultSeed: Proposal = turn("hello", &faultMemory)
     let mut failedSnapshot: Memory = faultMemory
