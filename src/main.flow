@@ -626,27 +626,31 @@ function run_observers(text: string, previous: Memory, reading: LineReading) -> 
     return observe_topic(reading, withFacts)
 }
 
+function responder_snapshot_ready(observed: Memory, snapshot: Memory) -> bool {
+    return observed.recentCount == 0 or (snapshot.recent != null and snapshot.recent != observed.recent)
+}
+
 function collect_responses(text: string, reading: LineReading, previous: Memory, observed: Memory) -> CandidateSet {
     let clean: string = reading.clean
     let mut candidates: CandidateSet = candidate_set_new()
     let greetingMemory: Memory = isolate_winning_transcript(observed)
-    if observed.recentCount == 0 or greetingMemory.recent != observed.recent {
+    if responder_snapshot_ready(observed, greetingMemory) {
         let _g: bool = candidate_set_add_owned(&candidates, greeting_reply(text, clean, greetingMemory, previous, reading), observed)
     }
     let knowledgeMemory: Memory = isolate_winning_transcript(observed)
-    if observed.recentCount == 0 or knowledgeMemory.recent != observed.recent {
+    if responder_snapshot_ready(observed, knowledgeMemory) {
         let _k: bool = candidate_set_add_owned(&candidates, knowledge_reply(text, clean, knowledgeMemory), observed)
     }
     let nameMemory: Memory = isolate_winning_transcript(observed)
-    if observed.recentCount == 0 or nameMemory.recent != observed.recent {
+    if responder_snapshot_ready(observed, nameMemory) {
         let _n: bool = candidate_set_add_owned(&candidates, name_reply(text, clean, nameMemory), observed)
     }
     let recallMemory: Memory = isolate_winning_transcript(observed)
-    if observed.recentCount == 0 or recallMemory.recent != observed.recent {
+    if responder_snapshot_ready(observed, recallMemory) {
         let _r: bool = candidate_set_add_owned(&candidates, recall_reply(clean, recallMemory), observed)
     }
     let factMemory: Memory = isolate_winning_transcript(observed)
-    if observed.recentCount == 0 or factMemory.recent != observed.recent {
+    if responder_snapshot_ready(observed, factMemory) {
         let _f: bool = candidate_set_add_owned(&candidates, fact_reply(clean, factMemory), observed)
     }
     return candidates
@@ -746,6 +750,25 @@ function read_line() -> InputLine {
 }
 
 function run_self_tests() -> i32 {
+    let mut faultMemory: Memory = fresh_memory()
+    let _faultSeed: Proposal = turn("hello", &faultMemory)
+    let mut failedSnapshot: Memory = faultMemory
+    if responder_snapshot_ready(faultMemory, failedSnapshot) {
+        println("FAIL: shared responder transcript must fail closed")
+        return 88
+    }
+    failedSnapshot.recent = null
+    if responder_snapshot_ready(faultMemory, failedSnapshot) {
+        println("FAIL: null responder transcript must fail closed")
+        return 89
+    }
+    let isolatedSnapshot: Memory = isolate_winning_transcript(faultMemory)
+    if not responder_snapshot_ready(faultMemory, isolatedSnapshot) {
+        println("FAIL: independent responder transcript must be accepted")
+        return 90
+    }
+    free(isolatedSnapshot.recent as ptr<void>)
+    release_history(faultMemory)
     let emptyReading: LineReading = understand_line("unmatched nonsense input", "")
     let emptyMemory: Memory = fresh_memory()
     let mut collectedEmptyCandidates: CandidateSet = collect_responses("unmatched nonsense input", emptyReading, emptyMemory, emptyMemory)
@@ -1400,7 +1423,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 87 Flow runtime regression scenarios")
+    println("PASS: 90 Flow runtime regression scenarios")
     return 0
 }
 
