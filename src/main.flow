@@ -269,6 +269,11 @@ function observe(text: string, memory: Memory) -> Memory {
             owner = "dad"
             prefix = "my dad's name is "
         }
+        if personStart < 0 {
+            personStart = index_of(lower, "my partner's name is ")
+            owner = "partner"
+            prefix = "my partner's name is "
+        }
         if personStart >= 0 {
             let otherName: string = extract_fact_value(text, personStart + (strlen(prefix) as i32), 2)
             next.facts = facts_note(next.facts, owner, "name", otherName, text, next.turns + 1)
@@ -483,6 +488,9 @@ function fact_reply(lower: string, memory: Memory) -> Proposal {
         owner = "mum"
     } elif contains(lower, "dad's name") {
         owner = "dad"
+    }
+    if contains(lower, "partner's name") {
+        owner = "partner"
     }
     if not same(owner, "") and
        (contains(lower, "what") or contains(lower, "remember") or contains(lower, "tell me")) {
@@ -882,6 +890,21 @@ function run_self_tests() -> i32 {
     }
     free(copiedTranscript.recent as ptr<void>)
     release_history(longTranscript)
+    let mut partnerMemory: Memory = fresh_memory()
+    let _partnerIntro: Proposal = turn("my partner's name is Morgan", &partnerMemory)
+    let partnerRecall: Proposal = turn("what is my partner's name?", &partnerMemory)
+    if not same(partnerRecall.module, "fact_recall") or not same(partnerRecall.reply, "Your partner's name is Morgan.") {
+        println("FAIL: partner name attribution and recall")
+        return 93
+    }
+    let _partnerCorrection: Proposal = turn("my partner's name is Taylor", &partnerMemory)
+    let partnerUpdated: Proposal = turn("what is my partner's name?", &partnerMemory)
+    if not same(partnerUpdated.reply, "Your partner's name is Taylor.") or
+       facts_count(partnerMemory.facts) != 2 {
+        println("FAIL: partner correction must retain attributed fact history")
+        return 94
+    }
+    release_history(partnerMemory)
     let mut memory: Memory = fresh_memory()
     let a: Proposal = turn("hi, i'm Sam", &memory)
     if not same(a.reply, "Nice to meet you, Sam. What can I help with?") {
