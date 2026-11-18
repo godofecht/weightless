@@ -681,13 +681,8 @@ function release_candidate_transcripts(candidates: CandidateSet, observed: Memor
     }
 }
 
-function isolate_winning_transcript(memory: Memory) -> Memory {
-    if memory.recent == null or memory.recentCount == 0 {
-        return memory
-    }
-    let bytes: i64 = (memory.recentCount as i64) * sizeof<TurnRecord>()
-    let copied: ptr<TurnRecord> = realloc(null, bytes) as ptr<TurnRecord>
-    if copied == null {
+function isolate_winning_transcript_with_allocation(memory: Memory, copied: ptr<TurnRecord>) -> Memory {
+    if memory.recent == null or memory.recentCount == 0 or copied == null {
         return memory
     }
     for i in 0 to memory.recentCount {
@@ -697,6 +692,15 @@ function isolate_winning_transcript(memory: Memory) -> Memory {
     isolated.recent = copied
     isolated.recentCapacity = memory.recentCount
     return isolated
+}
+
+function isolate_winning_transcript(memory: Memory) -> Memory {
+    if memory.recent == null or memory.recentCount == 0 {
+        return memory
+    }
+    let bytes: i64 = (memory.recentCount as i64) * sizeof<TurnRecord>()
+    let copied: ptr<TurnRecord> = realloc(null, bytes) as ptr<TurnRecord>
+    return isolate_winning_transcript_with_allocation(memory, copied)
 }
 
 function turn_with_candidate_trace(text: string, state: ptr<Memory>, traceCandidates: bool) -> Proposal {
@@ -761,6 +765,15 @@ function run_self_tests() -> i32 {
     if responder_snapshot_ready(faultMemory, failedSnapshot) {
         println("FAIL: null responder transcript must fail closed")
         return 89
+    }
+    let deniedSnapshot: Memory = isolate_winning_transcript_with_allocation(faultMemory, null)
+    if responder_snapshot_ready(faultMemory, deniedSnapshot) {
+        println("FAIL: allocation-denied responder snapshot must fail closed")
+        return 91
+    }
+    if deniedSnapshot.recent != faultMemory.recent or deniedSnapshot.recentCount != faultMemory.recentCount {
+        println("FAIL: allocation denial must leave original transcript intact")
+        return 92
     }
     let isolatedSnapshot: Memory = isolate_winning_transcript(faultMemory)
     if not responder_snapshot_ready(faultMemory, isolatedSnapshot) {
