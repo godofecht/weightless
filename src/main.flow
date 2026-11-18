@@ -681,7 +681,11 @@ function avoid_repeated_answer(candidates: CandidateSet, previous: Memory, winne
 
 function choose_for_text(candidates: CandidateSet, previous: Memory, observed: Memory, text: string) -> Proposal {
     if previous.turns > 0 and same(lower_ascii(trimmed(text)), lower_ascii(trimmed(previous.lastUser))) {
-        return choose(candidates, previous, observed)
+        let mut repeatContext: Memory = previous
+        repeatContext.lastReply = ""
+        repeatContext.recent = null
+        repeatContext.recentCount = 0
+        return choose(candidates, repeatContext, observed)
     }
     let winner: Proposal = choose(candidates, previous, observed)
     return avoid_repeated_answer(candidates, previous, winner, observed.topic)
