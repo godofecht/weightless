@@ -275,6 +275,16 @@ function observe(text: string, memory: Memory) -> Memory {
             prefix = "my partner's name is "
         }
         if personStart < 0 {
+            personStart = index_of(lower, "my wife's name is ")
+            owner = "partner"
+            prefix = "my wife's name is "
+        }
+        if personStart < 0 {
+            personStart = index_of(lower, "my husband's name is ")
+            owner = "partner"
+            prefix = "my husband's name is "
+        }
+        if personStart < 0 {
             personStart = index_of(lower, "my friend's name is ")
             owner = "friend"
             prefix = "my friend's name is "
@@ -499,7 +509,8 @@ function fact_reply(lower: string, memory: Memory) -> Proposal {
     } elif contains(lower, "dad's name") {
         owner = "dad"
     }
-    if contains(lower, "partner's name") {
+    if contains(lower, "partner's name") or contains(lower, "wife's name") or
+       contains(lower, "husband's name") {
         owner = "partner"
     } elif contains(lower, "friend's name") {
         owner = "friend"
@@ -1478,6 +1489,23 @@ function run_self_tests() -> i32 {
         return 44
     }
     release_history(phrases)
+    let mut spouseMemory: Memory = fresh_memory()
+    let _wife: Proposal = turn("my wife's name is Jane Doe", &spouseMemory)
+    let wifeRecall: Proposal = turn("what's my wife's name?", &spouseMemory)
+    if not same(wifeRecall.reply, "Your partner's name is Jane Doe.") or
+       facts_count(spouseMemory.facts) != 1 {
+        println("FAIL: spouse alias attributed to partner memory")
+        return 47
+    }
+    let _husband: Proposal = turn("actually my husband's name is Sam", &spouseMemory)
+    let husbandRecall: Proposal = turn("what is my husband's name?", &spouseMemory)
+    if not same(husbandRecall.reply, "Your partner's name is Sam.") or
+       facts_latest_turn(spouseMemory.facts, "partner", "name") != 3 or
+       facts_count(spouseMemory.facts) != 2 {
+        println("FAIL: spouse alias correction retains fact history")
+        return 48
+    }
+    release_history(spouseMemory)
     let mut topicMemory: Memory = fresh_memory()
     let _kettleTopic: Proposal = turn("my kettle has limescale", &topicMemory)
     let unrelated: Proposal = turn("how long does a train take?", &topicMemory)
@@ -1500,7 +1528,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 98 Flow runtime regression scenarios")
+    println("PASS: 100 Flow runtime regression scenarios")
     return 0
 }
 
