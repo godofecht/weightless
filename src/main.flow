@@ -834,6 +834,16 @@ function read_line() -> InputLine {
 }
 
 function run_self_tests() -> i32 {
+    let parkingReading: LineReading = understand_line("Is parking on the pavement legal?", "")
+    if not same(parkingReading.topic, "parking") or not same(parkingReading.kind, "question") {
+        println("FAIL: pavement parking question must set distinct parking topic")
+        return 114
+    }
+    let parkingFollowup: LineReading = understand_line("And what about that?", parkingReading.topic)
+    if not parkingFollowup.followup or not same(parkingFollowup.topic, "parking") {
+        println("FAIL: parking topic must carry into referential followup")
+        return 115
+    }
     let mut recallRepeatMemory: Memory = fresh_memory()
     recallRepeatMemory.lastReply = "Remembered answer"
     let mut recallRepeatSet: CandidateSet = candidate_set_new()
@@ -1693,7 +1703,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 113 Flow runtime regression scenarios")
+    println("PASS: 115 Flow runtime regression scenarios")
     return 0
 }
 
