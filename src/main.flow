@@ -662,7 +662,7 @@ function choose(candidates: CandidateSet, previous: Memory, observed: Memory) ->
 }
 
 function avoid_repeated_answer(candidates: CandidateSet, previous: Memory, winner: Proposal, topic: string) -> Proposal {
-    if winner.priority >= 9000 or not reply_was_used(previous, winner.reply) {
+    if winner.priority >= 7000 or not reply_was_used(previous, winner.reply) {
         return winner
     }
     let mut alternative: Proposal = winner
@@ -834,6 +834,17 @@ function read_line() -> InputLine {
 }
 
 function run_self_tests() -> i32 {
+    let mut recallRepeatMemory: Memory = fresh_memory()
+    recallRepeatMemory.lastReply = "Remembered answer"
+    let mut recallRepeatSet: CandidateSet = candidate_set_new()
+    let _recallRepeatA: bool = candidate_set_add(&recallRepeatSet, proposal("Remembered answer", "recall", 7000, recallRepeatMemory))
+    let _recallRepeatB: bool = candidate_set_add(&recallRepeatSet, proposal("Fresh unrelated answer", "general", 200, recallRepeatMemory))
+    let recallRepeatWinner: Proposal = choose_for_text(recallRepeatSet, recallRepeatMemory, recallRepeatMemory, "what did you say earlier?")
+    if not same(recallRepeatWinner.module, "recall") {
+        println("FAIL: transcript recall must not yield to novel unrelated answer")
+        return 113
+    }
+    candidate_set_release(&recallRepeatSet)
     let mut repeatedSpecialistMemory: Memory = fresh_memory()
     repeatedSpecialistMemory.turns = 1
     repeatedSpecialistMemory.lastUser = "how do I descale my kettle"
@@ -1682,7 +1693,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 112 Flow runtime regression scenarios")
+    println("PASS: 113 Flow runtime regression scenarios")
     return 0
 }
 
