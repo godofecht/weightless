@@ -836,32 +836,32 @@ function read_line() -> InputLine {
 }
 
 function run_self_tests() -> i32 {
-    let repeatMemory: Memory = fresh_memory()
-    repeatMemory.lastReply = "Repeated answer"
+    let crossRepeatMemory: Memory = fresh_memory()
+    crossRepeatMemory.lastReply = "Repeated answer"
     let mut repeatSet: CandidateSet = candidate_set_new()
-    let _repeatA: bool = candidate_set_add(&repeatSet, proposal("Repeated answer", "general", 800, repeatMemory))
-    let _repeatB: bool = candidate_set_add(&repeatSet, proposal("Fresh answer", "specialist", 300, repeatMemory))
-    let repeatWinner: Proposal = choose_for_text(repeatSet, repeatMemory, repeatMemory, "new question")
+    let _repeatA: bool = candidate_set_add(&repeatSet, proposal("Repeated answer", "general", 800, crossRepeatMemory))
+    let _repeatB: bool = candidate_set_add(&repeatSet, proposal("Fresh answer", "specialist", 300, crossRepeatMemory))
+    let repeatWinner: Proposal = choose_for_text(repeatSet, crossRepeatMemory, crossRepeatMemory, "new question")
     if not same(repeatWinner.module, "specialist") {
         println("FAIL: earlier full answer must yield to a fresh real response")
         return 107
     }
-    let repeatedQuestion: Memory = Memory {
-        name: repeatMemory.name, topic: repeatMemory.topic,
-        lastUser: "same question", lastReply: repeatMemory.lastReply,
-        turns: 1, recent: repeatMemory.recent, recentCount: repeatMemory.recentCount,
-        recentCapacity: repeatMemory.recentCapacity, facts: repeatMemory.facts
+    let crossRepeatedQuestion: Memory = Memory {
+        name: crossRepeatMemory.name, topic: crossRepeatMemory.topic,
+        lastUser: "same question", lastReply: crossRepeatMemory.lastReply,
+        turns: 1, recent: crossRepeatMemory.recent, recentCount: crossRepeatMemory.recentCount,
+        recentCapacity: crossRepeatMemory.recentCapacity, facts: crossRepeatMemory.facts
     }
-    let sameQuestionWinner: Proposal = choose_for_text(repeatSet, repeatedQuestion, repeatedQuestion, "same question")
+    let sameQuestionWinner: Proposal = choose_for_text(repeatSet, crossRepeatedQuestion, crossRepeatedQuestion, "same question")
     if not same(sameQuestionWinner.module, "general") {
         println("FAIL: immediately repeated question may repeat its answer")
         return 108
     }
     candidate_set_release(&repeatSet)
     let mut safetySet: CandidateSet = candidate_set_new()
-    let _safetyA: bool = candidate_set_add(&safetySet, proposal("Repeated answer", "safety", 9000, repeatMemory))
-    let _safetyB: bool = candidate_set_add(&safetySet, proposal("Fresh answer", "general", 800, repeatMemory))
-    let safetyWinner: Proposal = choose_for_text(safetySet, repeatMemory, repeatMemory, "new question")
+    let _safetyA: bool = candidate_set_add(&safetySet, proposal("Repeated answer", "safety", 9000, crossRepeatMemory))
+    let _safetyB: bool = candidate_set_add(&safetySet, proposal("Fresh answer", "general", 800, crossRepeatMemory))
+    let safetyWinner: Proposal = choose_for_text(safetySet, crossRepeatMemory, crossRepeatMemory, "new question")
     if not same(safetyWinner.module, "safety") {
         println("FAIL: repeated safety answer must not be displaced")
         return 109
