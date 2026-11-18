@@ -107,6 +107,12 @@ function under_explicit_topic(clean: string) -> string {
        under_contains(clean, "descale") {
         return "kettle"
     }
+    if under_contains(clean, "parking on the pavement") or
+       under_contains(clean, "park on the pavement") or
+       under_contains(clean, "dropped kerb") or
+       under_contains(clean, "grass verge") {
+        return "parking"
+    }
     if under_has_word(clean, "train") or under_has_word(clean, "railway") {
         return "transport"
     }
