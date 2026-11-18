@@ -661,7 +661,7 @@ function choose(candidates: CandidateSet, previous: Memory, observed: Memory) ->
     return winner
 }
 
-function avoid_repeated_answer(candidates: CandidateSet, previous: Memory, winner: Proposal) -> Proposal {
+function avoid_repeated_answer(candidates: CandidateSet, previous: Memory, winner: Proposal, topic: string) -> Proposal {
     if winner.priority >= 9000 or not reply_was_used(previous, winner.reply) {
         return winner
     }
@@ -669,7 +669,8 @@ function avoid_repeated_answer(candidates: CandidateSet, previous: Memory, winne
     for i in 0 to candidates.count {
         let candidate: Proposal = candidates.values[i]
         if candidate.priority >= 0 and not same(candidate.reply, "") and
-           not reply_was_used(previous, candidate.reply) {
+           not reply_was_used(previous, candidate.reply) and
+           (not topic_specialist_fit(winner, topic) or topic_specialist_fit(candidate, topic)) {
             if same(alternative.reply, winner.reply) or candidate.priority > alternative.priority {
                 alternative = candidate
             }
@@ -690,7 +691,7 @@ function choose_for_text(candidates: CandidateSet, previous: Memory, observed: M
         return winner
     }
     let winner: Proposal = choose(candidates, previous, observed)
-    return avoid_repeated_answer(candidates, previous, winner)
+    return avoid_repeated_answer(candidates, previous, winner, observed.topic)
 }
 
 function observe_topic(reading: LineReading, memory: Memory) -> Memory {
@@ -836,6 +837,28 @@ function read_line() -> InputLine {
 }
 
 function run_self_tests() -> i32 {
+    let topicRepeatMemory: Memory = fresh_memory()
+    topicRepeatMemory.lastReply = "Kettle answer"
+    topicRepeatMemory.topic = "kettle"
+    let mut topicRepeatSet: CandidateSet = candidate_set_new()
+    let _topicRepeatA: bool = candidate_set_add(&topicRepeatSet, proposal("Kettle answer", "kettle", 300, topicRepeatMemory))
+    let _topicRepeatB: bool = candidate_set_add(&topicRepeatSet, proposal("Unrelated fresh answer", "general", 800, topicRepeatMemory))
+    let topicRepeatWinner: Proposal = choose_for_text(topicRepeatSet, topicRepeatMemory, topicRepeatMemory, "how do I descale my kettle")
+    if not same(topicRepeatWinner.module, "kettle") {
+        println("FAIL: repetition must not replace a topical answer with unrelated content")
+        return 110
+    }
+    candidate_set_release(&topicRepeatSet)
+    let mut topicAlternativeSet: CandidateSet = candidate_set_new()
+    let _topicAlternativeA: bool = candidate_set_add(&topicAlternativeSet, proposal("Kettle answer", "kettle", 300, topicRepeatMemory))
+    let _topicAlternativeB: bool = candidate_set_add(&topicAlternativeSet, proposal("Fresh kettle answer", "kettle_followup", 250, topicRepeatMemory))
+    let topicAlternativeWinner: Proposal = choose_for_text(topicAlternativeSet, topicRepeatMemory, topicRepeatMemory, "how do I descale my kettle")
+    if not same(topicAlternativeWinner.module, "kettle_followup") {
+        println("FAIL: fresh topical answer must replace a repeated topical answer")
+        return 111
+    }
+    candidate_set_release(&topicAlternativeSet)
+
     let crossRepeatMemory: Memory = fresh_memory()
     crossRepeatMemory.lastReply = "Repeated answer"
     let mut repeatSet: CandidateSet = candidate_set_new()
@@ -1647,7 +1670,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 109 Flow runtime regression scenarios")
+    println("PASS: 111 Flow runtime regression scenarios")
     return 0
 }
 
