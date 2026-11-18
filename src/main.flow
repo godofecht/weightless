@@ -296,7 +296,9 @@ function observe(text: string, memory: Memory) -> Memory {
         }
         if personStart >= 0 {
             let otherName: string = extract_fact_value(text, personStart + (strlen(prefix) as i32), 2)
-            next.facts = facts_note(next.facts, owner, "name", otherName, text, next.turns + 1)
+            if not same(otherName, "") {
+                next.facts = facts_note(next.facts, owner, "name", otherName, text, next.turns + 1)
+            }
         }
 
         let mut jobStart: i32 = index_of(lower, "my job is ")
@@ -315,13 +317,17 @@ function observe(text: string, memory: Memory) -> Memory {
             } else {
                 job = extract_fact_value(text, jobAt, 3)
             }
-            next.facts = facts_note(next.facts, "self", "job", job, text, next.turns + 1)
+            if not same(job, "") {
+                next.facts = facts_note(next.facts, "self", "job", job, text, next.turns + 1)
+            }
         }
         if first_word(lower, "i") {
             let cityStart: i32 = index_of(lower, "i live in ")
             if cityStart >= 0 {
                 let city: string = extract_fact_value(text, cityStart + 10, 3)
-                next.facts = facts_note(next.facts, "self", "city", city, text, next.turns + 1)
+                if not same(city, "") {
+                    next.facts = facts_note(next.facts, "self", "city", city, text, next.turns + 1)
+                }
             }
         }
     }
@@ -1506,6 +1512,22 @@ function run_self_tests() -> i32 {
         return 48
     }
     release_history(spouseMemory)
+    let mut incompleteFacts: Memory = fresh_memory()
+    let _emptyRelative: Proposal = turn("my sister's name is ", &incompleteFacts)
+    let _emptyJob: Proposal = turn("my job is ", &incompleteFacts)
+    let _emptyCity: Proposal = turn("i live in ", &incompleteFacts)
+    if facts_count(incompleteFacts.facts) != 0 {
+        println("FAIL: incomplete declarations must not append empty attributed facts")
+        return 71
+    }
+    let _validRelative: Proposal = turn("my sister's name is Lucy", &incompleteFacts)
+    let _incompleteCorrection: Proposal = turn("actually my sister's name is ", &incompleteFacts)
+    if facts_count(incompleteFacts.facts) != 1 or
+       not same(facts_latest(incompleteFacts.facts, "sister", "name"), "Lucy") {
+        println("FAIL: incomplete correction must not erase previously observed fact")
+        return 72
+    }
+    release_history(incompleteFacts)
     let mut topicMemory: Memory = fresh_memory()
     let _kettleTopic: Proposal = turn("my kettle has limescale", &topicMemory)
     let unrelated: Proposal = turn("how long does a train take?", &topicMemory)
@@ -1528,7 +1550,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 100 Flow runtime regression scenarios")
+    println("PASS: 102 Flow runtime regression scenarios")
     return 0
 }
 
