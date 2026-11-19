@@ -92,6 +92,31 @@ function main() -> i32 {
         println("FAIL: first-turn follow-up must not invent context")
         return 16
     }
-    println("PASS: 16 structured-understanding Flow scenarios")
+    let frequency: LineReading = understand_line("How often should I do that?", "kettle")
+    if not frequency.followup or not equal(frequency.topic, "kettle") {
+        println("FAIL: frequency follow-up inherits context")
+        return 17
+    }
+    let thenAsk: LineReading = understand_line("Then what?", "transport")
+    if not thenAsk.followup or not equal(thenAsk.topic, "transport") {
+        println("FAIL: then follow-up inherits context")
+        return 18
+    }
+    let insteadAsk: LineReading = understand_line("Instead, can I use it?", "electricity")
+    if not insteadAsk.followup or not equal(insteadAsk.topic, "electricity") {
+        println("FAIL: instead follow-up inherits context")
+        return 19
+    }
+    let anotherTopic: LineReading = understand_line("Another train?", "kettle")
+    if anotherTopic.followup or not equal(anotherTopic.topic, "transport") {
+        println("FAIL: explicit train topic overrides another opener")
+        return 20
+    }
+    let noPrevious: LineReading = understand_line("Then what?", "")
+    if noPrevious.followup or not equal(noPrevious.topic, "") {
+        println("FAIL: then opener cannot fabricate a prior topic")
+        return 21
+    }
+    println("PASS: 21 structured-understanding Flow scenarios")
     return 0
 }
