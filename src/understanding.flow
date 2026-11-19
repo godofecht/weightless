@@ -237,6 +237,13 @@ export function understand_line(raw: string, previousTopic: string) -> LineReadi
                            under_has_word(clean, "them") or
                            under_has_word(clean, "it") or
                            under_contains(clean, "what about") or
+                           under_starts_word(clean, "how about") or
+                           under_starts_word(clean, "what if") or
+                           under_starts_word(clean, "also") or
+                           under_starts_word(clean, "but") or
+                           under_starts_word(clean, "so") or
+                           under_starts_word(clean, "anything else") or
+                           under_starts_word(clean, "what else") or
                            under_starts_word(clean, "and") or
                            under_starts_word(clean, "what next") or
                            under_contains(clean, "and then") or
