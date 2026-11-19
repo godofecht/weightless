@@ -473,6 +473,27 @@ function knowledge_reply(text: string, lower: string, memory: Memory) -> Proposa
 }
 
 function recall_reply(lower: string, memory: Memory) -> Proposal {
+    if contains(lower, "which module answered four turns ago") or contains(lower, "which module answered 4 turns ago") {
+        let prior: TurnRecord = recent_turn(memory, 4)
+        if same(prior.module, "") {
+            return proposal("I don't have a module from four turns ago.", "recall", 7000, memory)
+        }
+        return proposal("The module was " + prior.module + ".", "recall", 7000, memory)
+    }
+    if contains(lower, "what did you say four turns ago") or contains(lower, "what did you say 4 turns ago") {
+        let prior: TurnRecord = recent_turn(memory, 4)
+        if same(prior.bot, "") {
+            return proposal("I don't have an answer from four turns ago.", "recall", 7000, memory)
+        }
+        return proposal("I said: " + prior.bot, "recall", 7000, memory)
+    }
+    if contains(lower, "what did i say four turns ago") or contains(lower, "what did i say 4 turns ago") {
+        let prior: TurnRecord = recent_turn(memory, 4)
+        if same(prior.user, "") {
+            return proposal("I don't have a message from four turns ago.", "recall", 7000, memory)
+        }
+        return proposal("You said: " + prior.user, "recall", 7000, memory)
+    }
     if contains(lower, "which module answered three turns ago") or contains(lower, "which module answered 3 turns ago") {
         let prior: TurnRecord = recent_turn(memory, 3)
         if same(prior.module, "") {
@@ -860,6 +881,39 @@ function read_line() -> InputLine {
 }
 
 function run_self_tests() -> i32 {
+    let mut fourTurnMemory: Memory = fresh_memory()
+    let firstFour: Proposal = turn("hello", &fourTurnMemory)
+    let _secondFour: Proposal = turn("my name is Morgan", &fourTurnMemory)
+    let _thirdFour: Proposal = turn("thanks", &fourTurnMemory)
+    let _fourthFour: Proposal = turn("goodbye", &fourTurnMemory)
+    let fourUser: Proposal = turn("what did i say four turns ago?", &fourTurnMemory)
+    if not same(fourUser.reply, "You said: hello.") or not same(fourUser.module, "recall") {
+        println("FAIL: four-turn user transcript recall")
+        return 135
+    }
+    release_history(fourTurnMemory)
+    let mut fourBotMemory: Memory = fresh_memory()
+    let botFirst: Proposal = turn("hello", &fourBotMemory)
+    let _botSecond: Proposal = turn("my name is Morgan", &fourBotMemory)
+    let _botThird: Proposal = turn("thanks", &fourBotMemory)
+    let _botFourth: Proposal = turn("goodbye", &fourBotMemory)
+    let fourBot: Proposal = turn("what did you say 4 turns ago?", &fourBotMemory)
+    if not same(fourBot.reply, "I said: " + botFirst.reply) {
+        println("FAIL: four-turn bot transcript recall")
+        return 136
+    }
+    release_history(fourBotMemory)
+    let mut fourModuleMemory: Memory = fresh_memory()
+    let moduleFirst: Proposal = turn("hello", &fourModuleMemory)
+    let _moduleSecondFour: Proposal = turn("my name is Morgan", &fourModuleMemory)
+    let _moduleThirdFour: Proposal = turn("thanks", &fourModuleMemory)
+    let _moduleFourthFour: Proposal = turn("goodbye", &fourModuleMemory)
+    let fourModule: Proposal = turn("which module answered four turns ago?", &fourModuleMemory)
+    if not same(fourModule.reply, "The module was " + moduleFirst.module + ".") {
+        println("FAIL: four-turn module transcript recall")
+        return 137
+    }
+    release_history(fourModuleMemory)
     let foodReading: LineReading = understand_line("Is my food safe after being left out?", "")
     if not same(foodReading.topic, "cooking") {
         println("FAIL: food safety query must establish cooking topic")
@@ -1838,7 +1892,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 134 Flow runtime regression scenarios")
+    println("PASS: 137 Flow runtime regression scenarios")
     return 0
 }
 
