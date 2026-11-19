@@ -104,7 +104,7 @@ function under_has_word(text: string, word: string) -> bool {
 
 function under_explicit_topic(clean: string) -> string {
     if under_has_word(clean, "kettle") or under_has_word(clean, "limescale") or
-       under_contains(clean, "descale") {
+       under_has_word(clean, "descale") or under_has_word(clean, "descaling") {
         return "kettle"
     }
     if under_contains(clean, "parking on the pavement") or
@@ -117,7 +117,7 @@ function under_explicit_topic(clean: string) -> string {
     if under_has_word(clean, "train") or under_has_word(clean, "railway") {
         return "transport"
     }
-    if under_contains(clean, "microwave") or under_has_word(clean, "pasta") or
+    if under_has_word(clean, "microwave") or under_has_word(clean, "pasta") or
        under_has_word(clean, "vegetables") or under_has_word(clean, "food") or
        under_has_word(clean, "leftovers") or under_has_word(clean, "fridge") or
        under_has_word(clean, "lunch") or under_has_word(clean, "dinner") {
