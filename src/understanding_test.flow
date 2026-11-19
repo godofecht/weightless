@@ -167,6 +167,31 @@ function main() -> i32 {
         println("FAIL: descaler is not a standalone descale verb")
         return 31
     }
-    println("PASS: 31 structured-understanding Flow scenarios")
+    let whyFollowup: LineReading = understand_line("Why is that?", "kettle")
+    if not whyFollowup.followup or not equal(whyFollowup.topic, "kettle") {
+        println("FAIL: why opener inherits a previous topic")
+        return 32
+    }
+    let whereFollowup: LineReading = understand_line("Where can I find one?", "transport")
+    if not whereFollowup.followup or not equal(whereFollowup.topic, "transport") {
+        println("FAIL: where opener inherits a previous topic")
+        return 33
+    }
+    let willIt: LineReading = understand_line("Will it work?", "electricity")
+    if not willIt.followup or not equal(willIt.topic, "electricity") {
+        println("FAIL: modal pronoun opener inherits context")
+        return 34
+    }
+    let explicitSwitch: LineReading = understand_line("Why is the microwave noisy?", "kettle")
+    if explicitSwitch.followup or not equal(explicitSwitch.topic, "cooking") {
+        println("FAIL: explicit topic overrides why follow-up")
+        return 35
+    }
+    let firstTurnWhere: LineReading = understand_line("Where can I find one?", "")
+    if firstTurnWhere.followup or not equal(firstTurnWhere.topic, "") {
+        println("FAIL: where opener cannot fabricate context")
+        return 36
+    }
+    println("PASS: 36 structured-understanding Flow scenarios")
     return 0
 }
