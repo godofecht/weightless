@@ -132,6 +132,21 @@ function main() -> i32 {
         println("FAIL: first self-identification is not a correction")
         return 24
     }
-    println("PASS: 24 structured-understanding Flow scenarios")
+    let kettlebell: LineReading = understand_line("Can I lift a kettlebell?", "transport")
+    if not equal(kettlebell.topic, "") or kettlebell.followup {
+        println("FAIL: kettlebell is not a kettle topic")
+        return 25
+    }
+    let realKettle: LineReading = understand_line("Can I descale the kettle?", "transport")
+    if not equal(realKettle.topic, "kettle") or realKettle.followup {
+        println("FAIL: whole-word kettle topic remains recognized")
+        return 26
+    }
+    let limescale: LineReading = understand_line("How do I remove limescale?", "")
+    if not equal(limescale.topic, "kettle") {
+        println("FAIL: whole-word limescale remains recognized")
+        return 27
+    }
+    println("PASS: 27 structured-understanding Flow scenarios")
     return 0
 }
