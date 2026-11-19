@@ -471,6 +471,27 @@ function knowledge_reply(text: string, lower: string, memory: Memory) -> Proposa
 }
 
 function recall_reply(lower: string, memory: Memory) -> Proposal {
+    if contains(lower, "which module answered three turns ago") or contains(lower, "which module answered 3 turns ago") {
+        let prior: TurnRecord = recent_turn(memory, 3)
+        if same(prior.module, "") {
+            return proposal("I don't have a module from three turns ago.", "recall", 7000, memory)
+        }
+        return proposal("The module was " + prior.module + ".", "recall", 7000, memory)
+    }
+    if contains(lower, "what did you say three turns ago") or contains(lower, "what did you say 3 turns ago") {
+        let prior: TurnRecord = recent_turn(memory, 3)
+        if same(prior.bot, "") {
+            return proposal("I don't have an answer from three turns ago.", "recall", 7000, memory)
+        }
+        return proposal("I said: " + prior.bot, "recall", 7000, memory)
+    }
+    if contains(lower, "what did i say three turns ago") or contains(lower, "what did i say 3 turns ago") {
+        let prior: TurnRecord = recent_turn(memory, 3)
+        if same(prior.user, "") {
+            return proposal("I don't have a message from three turns ago.", "recall", 7000, memory)
+        }
+        return proposal("You said: " + prior.user, "recall", 7000, memory)
+    }
     if contains(lower, "which module answered two turns ago") or contains(lower, "which module answered 2 turns ago") {
         let prior: TurnRecord = recent_turn(memory, 2)
         if same(prior.module, "") {
@@ -837,6 +858,26 @@ function read_line() -> InputLine {
 }
 
 function run_self_tests() -> i32 {
+    let mut threeTurnMemory: Memory = fresh_memory()
+    threeTurnMemory = append_turn(threeTurnMemory, TurnRecord { user: "first user", bot: "first bot", module: "first_module" })
+    threeTurnMemory = append_turn(threeTurnMemory, TurnRecord { user: "second user", bot: "second bot", module: "second_module" })
+    threeTurnMemory = append_turn(threeTurnMemory, TurnRecord { user: "third user", bot: "third bot", module: "third_module" })
+    let threeUser: Proposal = recall_reply("what did i say three turns ago", threeTurnMemory)
+    if not same(threeUser.reply, "You said: first user") {
+        println("FAIL: third-turn user transcript recall")
+        return 123
+    }
+    let threeBot: Proposal = recall_reply("what did you say 3 turns ago", threeTurnMemory)
+    if not same(threeBot.reply, "I said: first bot") {
+        println("FAIL: third-turn bot transcript recall")
+        return 124
+    }
+    let threeModule: Proposal = recall_reply("which module answered three turns ago", threeTurnMemory)
+    if not same(threeModule.reply, "The module was first_module.") {
+        println("FAIL: third-turn module transcript recall")
+        return 125
+    }
+    release_history(threeTurnMemory)
     let safetyKnowledgeMemory: Memory = fresh_memory()
     let hotSocket: Proposal = knowledge_reply("is a hot plug socket safe?", "is a hot plug socket safe?", safetyKnowledgeMemory)
     if hotSocket.priority < 9000 or not same(hotSocket.module, "answers") {
@@ -1747,7 +1788,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 122 Flow runtime regression scenarios")
+    println("PASS: 125 Flow runtime regression scenarios")
     return 0
 }
 
