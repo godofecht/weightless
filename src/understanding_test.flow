@@ -147,6 +147,26 @@ function main() -> i32 {
         println("FAIL: whole-word limescale remains recognized")
         return 27
     }
-    println("PASS: 27 structured-understanding Flow scenarios")
+    let microwaveable: LineReading = understand_line("Is this microwaveable plastic safe?", "")
+    if not equal(microwaveable.topic, "") {
+        println("FAIL: microwaveable is not a standalone microwave topic")
+        return 28
+    }
+    let microwave: LineReading = understand_line("Can I use the microwave?", "")
+    if not equal(microwave.topic, "cooking") {
+        println("FAIL: whole-word microwave topic remains recognized")
+        return 29
+    }
+    let descaling: LineReading = understand_line("How often should I do descaling?", "")
+    if not equal(descaling.topic, "kettle") {
+        println("FAIL: descaling remains recognized as kettle topic")
+        return 30
+    }
+    let descaler: LineReading = understand_line("Is descaler safe?", "")
+    if not equal(descaler.topic, "") {
+        println("FAIL: descaler is not a standalone descale verb")
+        return 31
+    }
+    println("PASS: 31 structured-understanding Flow scenarios")
     return 0
 }
