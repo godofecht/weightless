@@ -458,11 +458,13 @@ function knowledge_reply(text: string, lower: string, memory: Memory) -> Proposa
         }
         return proposal(hit.reply, hit.module, 300 + hit.score, memory)
     }
+    if contains(lower, "how long") and
+       (same(memory.topic, "kettle") or contains(lower, "kettle") or
+        contains(lower, "limescale") or contains(lower, "descale")) {
+        return proposal("Half an hour.", "kettle_followup", 300, memory)
+    }
     if contains(lower, "kettle") or contains(lower, "limescale") or contains(lower, "descale") {
         return proposal("Half fill the kettle with equal parts water and white vinegar, boil it, leave it for half an hour, then rinse thoroughly and boil fresh water twice.", "kettle", 300, memory)
-    }
-    if contains(lower, "how long") and same(memory.topic, "kettle") {
-        return proposal("Half an hour.", "kettle_followup", 300, memory)
     }
     if contains(lower, "onions") and contains(lower, "cry") {
         return proposal("Cutting onions releases irritating sulfur compounds that react with moisture in your eyes.", "facts", 200, memory)
@@ -858,6 +860,19 @@ function read_line() -> InputLine {
 }
 
 function run_self_tests() -> i32 {
+    let explicitDurationMemory: Memory = fresh_memory()
+    let explicitDuration: Proposal = knowledge_reply("How long to descale a kettle?", "how long to descale a kettle?", explicitDurationMemory)
+    if not same(explicitDuration.module, "kettle_followup") or not same(explicitDuration.reply, "Half an hour.") {
+        println("FAIL: explicit kettle duration request must return duration rather than instructions")
+        return 126
+    }
+    let mut contextualDurationMemory: Memory = fresh_memory()
+    contextualDurationMemory.topic = "kettle"
+    let contextualDuration: Proposal = knowledge_reply("How long?", "how long?", contextualDurationMemory)
+    if not same(contextualDuration.module, "kettle_followup") {
+        println("FAIL: contextual kettle duration must retain specialist module")
+        return 127
+    }
     let mut threeTurnMemory: Memory = fresh_memory()
     threeTurnMemory = append_turn(threeTurnMemory, TurnRecord { user: "first user", bot: "first bot", module: "first_module" })
     threeTurnMemory = append_turn(threeTurnMemory, TurnRecord { user: "second user", bot: "second bot", module: "second_module" })
@@ -1788,7 +1803,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 125 Flow runtime regression scenarios")
+    println("PASS: 127 Flow runtime regression scenarios")
     return 0
 }
 
