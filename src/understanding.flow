@@ -117,9 +117,16 @@ function under_explicit_topic(clean: string) -> string {
     if under_has_word(clean, "train") or under_has_word(clean, "railway") {
         return "transport"
     }
-    if under_contains(clean, "microwave") or under_contains(clean, "pasta") or
-       under_contains(clean, "vegetables") {
+    if under_contains(clean, "microwave") or under_has_word(clean, "pasta") or
+       under_has_word(clean, "vegetables") or under_has_word(clean, "food") or
+       under_has_word(clean, "leftovers") or under_has_word(clean, "fridge") or
+       under_has_word(clean, "lunch") or under_has_word(clean, "dinner") {
         return "cooking"
+    }
+    if under_contains(clean, "secondary school") or under_contains(clean, "first day at school") or
+       under_has_word(clean, "school") or under_contains(clean, "year 7") or
+       under_contains(clean, "year 8") or under_contains(clean, "year 9") {
+        return "school"
     }
     if under_contains(clean, "wall socket") or under_has_word(clean, "plug") or
        under_contains(clean, "power cable") or under_has_word(clean, "socket") or

@@ -860,6 +860,26 @@ function read_line() -> InputLine {
 }
 
 function run_self_tests() -> i32 {
+    let foodReading: LineReading = understand_line("Is my food safe after being left out?", "")
+    if not same(foodReading.topic, "cooking") {
+        println("FAIL: food safety query must establish cooking topic")
+        return 131
+    }
+    let schoolReading: LineReading = understand_line("What do I need for the first day at secondary school?", "")
+    if not same(schoolReading.topic, "school") {
+        println("FAIL: secondary school question must establish school topic")
+        return 132
+    }
+    let foodFollowup: LineReading = understand_line("How long?", foodReading.topic)
+    if not foodFollowup.followup or not same(foodFollowup.topic, "cooking") {
+        println("FAIL: food duration follow-up must retain cooking topic")
+        return 133
+    }
+    let schoolFollowup: LineReading = understand_line("And then?", schoolReading.topic)
+    if not schoolFollowup.followup or not same(schoolFollowup.topic, "school") {
+        println("FAIL: school follow-up must retain school topic")
+        return 134
+    }
     let pavementTopic: LineReading = understand_line("Is pavement parking legal?", "")
     if not same(pavementTopic.topic, "parking") {
         println("FAIL: pavement noun should identify parking topic")
@@ -1818,7 +1838,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 130 Flow runtime regression scenarios")
+    println("PASS: 134 Flow runtime regression scenarios")
     return 0
 }
 
