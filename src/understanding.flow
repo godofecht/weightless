@@ -246,6 +246,14 @@ export function understand_line(raw: string, previousTopic: string) -> LineReadi
                            under_starts_word(clean, "what else") or
                            under_starts_word(clean, "and") or
                            under_starts_word(clean, "what next") or
+                           under_starts_word(clean, "then") or
+                           under_starts_word(clean, "how often") or
+                           under_starts_word(clean, "how much") or
+                           under_starts_word(clean, "how many") or
+                           under_starts_word(clean, "same") or
+                           under_starts_word(clean, "another") or
+                           under_starts_word(clean, "instead") or
+                           under_starts_word(clean, "even if") or
                            under_contains(clean, "and then") or
                            under_same(clean, "how long?") or
                            under_same(clean, "how long") or
