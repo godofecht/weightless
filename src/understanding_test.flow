@@ -117,6 +117,21 @@ function main() -> i32 {
         println("FAIL: then opener cannot fabricate a prior topic")
         return 21
     }
-    println("PASS: 21 structured-understanding Flow scenarios")
+    let correctedName: LineReading = understand_line("Actually, my name is Morgan", "")
+    if not equal(correctedName.intent, "correction") {
+        println("FAIL: explicit name correction intent")
+        return 22
+    }
+    let rejectedName: LineReading = understand_line("No, my name is Taylor", "")
+    if not equal(rejectedName.intent, "correction") {
+        println("FAIL: negated name correction intent")
+        return 23
+    }
+    let firstName: LineReading = understand_line("My name is Morgan", "")
+    if equal(firstName.intent, "correction") {
+        println("FAIL: first self-identification is not a correction")
+        return 24
+    }
+    println("PASS: 24 structured-understanding Flow scenarios")
     return 0
 }
