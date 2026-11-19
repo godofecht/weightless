@@ -645,6 +645,10 @@ function after_correction(text: string, memory: Memory) -> Memory {
         at = 18
     } elif index_of(clean, "please call me ") == 0 {
         at = 15
+    } elif index_of(clean, "actually, my name is ") == 0 {
+        at = 21
+    } elif index_of(clean, "no, my name is ") == 0 {
+        at = 15
     } else {
         return after
     }
@@ -896,6 +900,23 @@ function run_self_tests() -> i32 {
         println("FAIL: explicit topic must override pronoun reference")
         return 140
     }
+    let mut correctionMemory: Memory = fresh_memory()
+    let _oldName: Proposal = turn("my name is Alice", &correctionMemory)
+    let _newName: Proposal = turn("actually, my name is Morgan", &correctionMemory)
+    let correctedName: Proposal = turn("what's my name?", &correctionMemory)
+    if not same(correctedName.reply, "You're Morgan.") or
+       not same(facts_latest(correctionMemory.facts, "self", "name"), "Morgan") {
+        println("FAIL: explicit name correction must run after responder selection")
+        return 141
+    }
+    let _thirdName: Proposal = turn("no, my name is Taylor", &correctionMemory)
+    let finalName: Proposal = turn("what is my name?", &correctionMemory)
+    if not same(finalName.reply, "You're Taylor.") or
+       facts_latest_turn(correctionMemory.facts, "self", "name") != 4 {
+        println("FAIL: revised name must retain attributed correction turn")
+        return 142
+    }
+    release_history(correctionMemory)
     let mut fourTurnMemory: Memory = fresh_memory()
     let firstFour: Proposal = turn("hello", &fourTurnMemory)
     let _secondFour: Proposal = turn("my name is Morgan", &fourTurnMemory)
@@ -1907,7 +1928,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 140 Flow runtime regression scenarios")
+    println("PASS: 142 Flow runtime regression scenarios")
     return 0
 }
 
