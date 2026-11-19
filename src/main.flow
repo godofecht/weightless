@@ -860,6 +860,21 @@ function read_line() -> InputLine {
 }
 
 function run_self_tests() -> i32 {
+    let pavementTopic: LineReading = understand_line("Is pavement parking legal?", "")
+    if not same(pavementTopic.topic, "parking") {
+        println("FAIL: pavement noun should identify parking topic")
+        return 128
+    }
+    let socketTopic: LineReading = understand_line("My socket is buzzing", "")
+    if not same(socketTopic.topic, "electricity") {
+        println("FAIL: socket noun should identify electricity topic")
+        return 129
+    }
+    let screenTopic: LineReading = understand_line("Should I raise my screen?", "")
+    if not same(screenTopic.topic, "technology") {
+        println("FAIL: screen noun should identify technology topic")
+        return 130
+    }
     let explicitDurationMemory: Memory = fresh_memory()
     let explicitDuration: Proposal = knowledge_reply("How long to descale a kettle?", "how long to descale a kettle?", explicitDurationMemory)
     if not same(explicitDuration.module, "kettle_followup") or not same(explicitDuration.reply, "Half an hour.") {
@@ -1803,7 +1818,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 127 Flow runtime regression scenarios")
+    println("PASS: 130 Flow runtime regression scenarios")
     return 0
 }
 
