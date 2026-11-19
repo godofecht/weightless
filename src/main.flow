@@ -881,6 +881,21 @@ function read_line() -> InputLine {
 }
 
 function run_self_tests() -> i32 {
+    let pronounIt: LineReading = understand_line("Is it safe?", "cooking")
+    if not pronounIt.followup or not same(pronounIt.topic, "cooking") {
+        println("FAIL: it must inherit active food topic")
+        return 138
+    }
+    let pronounThem: LineReading = understand_line("Can I use them?", "electricity")
+    if not pronounThem.followup or not same(pronounThem.topic, "electricity") {
+        println("FAIL: them must inherit active electrical topic")
+        return 139
+    }
+    let pronounExplicit: LineReading = understand_line("Is it safe to park on the pavement?", "cooking")
+    if pronounExplicit.followup or not same(pronounExplicit.topic, "parking") {
+        println("FAIL: explicit topic must override pronoun reference")
+        return 140
+    }
     let mut fourTurnMemory: Memory = fresh_memory()
     let firstFour: Proposal = turn("hello", &fourTurnMemory)
     let _secondFour: Proposal = turn("my name is Morgan", &fourTurnMemory)
@@ -1892,7 +1907,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 137 Flow runtime regression scenarios")
+    println("PASS: 140 Flow runtime regression scenarios")
     return 0
 }
 
