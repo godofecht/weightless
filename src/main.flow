@@ -888,7 +888,7 @@ function run_self_tests() -> i32 {
     let _fourthFour: Proposal = turn("goodbye", &fourTurnMemory)
     let fourUser: Proposal = turn("what did i say four turns ago?", &fourTurnMemory)
     if not same(fourUser.reply, "You said: hello.") or not same(fourUser.module, "recall") {
-        println("FAIL: four-turn user transcript recall")
+        println("FAIL: four-turn user transcript recall; got module=" + fourUser.module + " reply=" + fourUser.reply)
         return 135
     }
     release_history(fourTurnMemory)
