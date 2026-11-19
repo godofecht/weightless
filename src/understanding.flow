@@ -249,6 +249,25 @@ export function understand_line(raw: string, previousTopic: string) -> LineReadi
                            under_starts_word(clean, "and") or
                            under_starts_word(clean, "what next") or
                            under_starts_word(clean, "then") or
+                           under_starts_word(clean, "why") or
+                           under_starts_word(clean, "when") or
+                           under_starts_word(clean, "where") or
+                           under_starts_word(clean, "which") or
+                           under_starts_word(clean, "more") or
+                           under_starts_word(clean, "else") or
+                           under_starts_word(clean, "other") or
+                           under_starts_word(clean, "ok and") or
+                           under_starts_word(clean, "ok so") or
+                           under_starts_word(clean, "will it") or
+                           under_starts_word(clean, "would it") or
+                           under_starts_word(clean, "should it") or
+                           under_starts_word(clean, "does it") or
+                           under_starts_word(clean, "is it") or
+                           under_starts_word(clean, "can it") or
+                           under_starts_word(clean, "does that") or
+                           under_starts_word(clean, "is that") or
+                           under_starts_word(clean, "can that") or
+                           under_starts_word(clean, "will that") or
                            under_starts_word(clean, "how often") or
                            under_starts_word(clean, "how much") or
                            under_starts_word(clean, "how many") or
