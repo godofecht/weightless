@@ -67,6 +67,31 @@ function main() -> i32 {
         println("FAIL: collapse whitespace without losing words")
         return 11
     }
-    println("PASS: 11 structured-understanding Flow scenarios")
+    let also: LineReading = understand_line("Also, can I use it again?", "kettle")
+    if not also.followup or not equal(also.topic, "kettle") {
+        println("FAIL: also follow-up inherits context")
+        return 12
+    }
+    let whatIf: LineReading = understand_line("What if it breaks?", "electricity")
+    if not whatIf.followup or not equal(whatIf.topic, "electricity") {
+        println("FAIL: what-if follow-up inherits context")
+        return 13
+    }
+    let howAbout: LineReading = understand_line("How about tomorrow?", "transport")
+    if not howAbout.followup or not equal(howAbout.topic, "transport") {
+        println("FAIL: how-about follow-up inherits context")
+        return 14
+    }
+    let newTopic: LineReading = understand_line("Also, can I use the train?", "kettle")
+    if newTopic.followup or not equal(newTopic.topic, "transport") {
+        println("FAIL: explicit new topic overrides follow-up opener")
+        return 15
+    }
+    let noContext: LineReading = understand_line("What if it breaks?", "")
+    if noContext.followup or not equal(noContext.topic, "") {
+        println("FAIL: first-turn follow-up must not invent context")
+        return 16
+    }
+    println("PASS: 16 structured-understanding Flow scenarios")
     return 0
 }
