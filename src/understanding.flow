@@ -233,6 +233,9 @@ export function understand_line(raw: string, previousTopic: string) -> LineReadi
 
     let explicit: string = under_explicit_topic(clean)
     let pointsBack: bool = under_has_word(clean, "that") or
+                           under_has_word(clean, "those") or
+                           under_has_word(clean, "them") or
+                           under_has_word(clean, "it") or
                            under_contains(clean, "what about") or
                            under_starts_word(clean, "and") or
                            under_starts_word(clean, "what next") or
