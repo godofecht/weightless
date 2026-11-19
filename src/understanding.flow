@@ -222,8 +222,8 @@ export function understand_line(raw: string, previousTopic: string) -> LineReadi
         reading.kind = "thanks"
         reading.intent = "thanks"
     } elif under_contains(clean, "i meant ") or under_contains(clean, "call me ") or
-           under_contains(clean, "my name is ") or
-           under_starts_word(clean, "actually") and under_contains(clean, "i am ") {
+           (under_contains(clean, "my name is ") and
+            (under_starts_word(clean, "actually") or under_starts_word(clean, "no"))) {
         reading.intent = "correction"
     } elif under_starts_word(clean, "tell") or under_starts_word(clean, "show") or
            under_starts_word(clean, "explain") {
