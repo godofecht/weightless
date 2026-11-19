@@ -110,7 +110,8 @@ function under_explicit_topic(clean: string) -> string {
     if under_contains(clean, "parking on the pavement") or
        under_contains(clean, "park on the pavement") or
        under_contains(clean, "dropped kerb") or
-       under_contains(clean, "grass verge") {
+       under_contains(clean, "grass verge") or
+       under_has_word(clean, "pavement") or under_has_word(clean, "footway") {
         return "parking"
     }
     if under_has_word(clean, "train") or under_has_word(clean, "railway") {
@@ -121,10 +122,12 @@ function under_explicit_topic(clean: string) -> string {
         return "cooking"
     }
     if under_contains(clean, "wall socket") or under_has_word(clean, "plug") or
-       under_contains(clean, "power cable") {
+       under_contains(clean, "power cable") or under_has_word(clean, "socket") or
+       under_has_word(clean, "sockets") {
         return "electricity"
     }
-    if under_contains(clean, "laptop stand") or under_has_word(clean, "monitor") {
+    if under_contains(clean, "laptop stand") or under_has_word(clean, "monitor") or
+       under_has_word(clean, "screen") {
         return "technology"
     }
     return ""
