@@ -103,7 +103,7 @@ function under_has_word(text: string, word: string) -> bool {
 }
 
 function under_explicit_topic(clean: string) -> string {
-    if under_contains(clean, "kettle") or under_contains(clean, "limescale") or
+    if under_has_word(clean, "kettle") or under_has_word(clean, "limescale") or
        under_contains(clean, "descale") {
         return "kettle"
     }
