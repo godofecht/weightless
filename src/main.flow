@@ -658,13 +658,16 @@ function after_correction(text: string, memory: Memory) -> Memory {
 
 function after_transcript(text: string, winning: Proposal, memory: Memory) -> Memory {
     let mut after: Memory = memory
-    after.lastUser = text
-    after.lastReply = winning.reply
+    let countBefore: i32 = after.recentCount
     after = append_turn(after, TurnRecord {
         user: text,
         bot: winning.reply,
         module: winning.module
     })
+    if after.recentCount == countBefore + 1 {
+        after.lastUser = text
+        after.lastReply = winning.reply
+    }
     return after
 }
 
@@ -932,6 +935,11 @@ function run_self_tests() -> i32 {
     appendFailure.recentCount = 1073741824
     appendFailure.recentCapacity = 1073741824
     let failedAfter: Memory = run_after_hooks("hello", proposal("hi", "test", 1, appendFailure), appendFailure)
+    if not same(failedAfter.lastUser, appendFailure.lastUser) or
+       not same(failedAfter.lastReply, appendFailure.lastReply) {
+        println("FAIL: failed transcript append must preserve last-user and last-reply metadata")
+        return 155
+    }
     if failedAfter.turns != appendFailure.turns or failedAfter.recentCount != appendFailure.recentCount {
         println("FAIL: failed transcript append must not advance turn counter")
         return 154
