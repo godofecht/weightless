@@ -1,7 +1,7 @@
 import std.bytebuf { ByteBuf, bb_new, bb_putc, bb_str, bb_free }
 import std.process { proc_argc, proc_argv }
 import .knowledge { KnowledgeHit, knowledge_lookup, knowledge_corpus_count, knowledge_corpus_release }
-import .facts { FactNode, facts_note, facts_latest, facts_latest_turn, facts_count, facts_release }
+import .facts { FactNode, facts_note, facts_latest, facts_latest_turn, facts_count, facts_release, facts_clone }
 import .understanding { LineReading, understand_line }
 
 extern {
@@ -754,29 +754,30 @@ function run_observers(text: string, previous: Memory, reading: LineReading) -> 
 }
 
 function responder_snapshot_ready(observed: Memory, snapshot: Memory) -> bool {
-    return observed.recentCount == 0 or (snapshot.recent != null and snapshot.recent != observed.recent)
+    return (observed.recentCount == 0 or (snapshot.recent != null and snapshot.recent != observed.recent)) and
+        (observed.facts == null or (snapshot.facts != null and snapshot.facts != observed.facts))
 }
 
 function collect_responses(text: string, reading: LineReading, previous: Memory, observed: Memory) -> CandidateSet {
     let clean: string = reading.clean
     let mut candidates: CandidateSet = candidate_set_new()
-    let greetingMemory: Memory = isolate_winning_transcript(observed)
+    let greetingMemory: Memory = isolate_candidate_memory(observed)
     if responder_snapshot_ready(observed, greetingMemory) {
         let _g: bool = candidate_set_add_owned(&candidates, greeting_reply(text, clean, greetingMemory, previous, reading), observed)
     }
-    let knowledgeMemory: Memory = isolate_winning_transcript(observed)
+    let knowledgeMemory: Memory = isolate_candidate_memory(observed)
     if responder_snapshot_ready(observed, knowledgeMemory) {
         let _k: bool = candidate_set_add_owned(&candidates, knowledge_reply(text, clean, knowledgeMemory), observed)
     }
-    let nameMemory: Memory = isolate_winning_transcript(observed)
+    let nameMemory: Memory = isolate_candidate_memory(observed)
     if responder_snapshot_ready(observed, nameMemory) {
         let _n: bool = candidate_set_add_owned(&candidates, name_reply(text, clean, nameMemory), observed)
     }
-    let recallMemory: Memory = isolate_winning_transcript(observed)
+    let recallMemory: Memory = isolate_candidate_memory(observed)
     if responder_snapshot_ready(observed, recallMemory) {
         let _r: bool = candidate_set_add_owned(&candidates, recall_reply(clean, recallMemory), observed)
     }
-    let factMemory: Memory = isolate_winning_transcript(observed)
+    let factMemory: Memory = isolate_candidate_memory(observed)
     if responder_snapshot_ready(observed, factMemory) {
         let _f: bool = candidate_set_add_owned(&candidates, fact_reply(clean, factMemory), observed)
     }
@@ -785,26 +786,28 @@ function collect_responses(text: string, reading: LineReading, previous: Memory,
 
 function candidate_set_add_owned(set: ptr<CandidateSet>, value: Proposal, observed: Memory) -> bool {
     if same(value.reply, "") {
-        if value.memory.recent != null and value.memory.recent != observed.recent {
-            free(value.memory.recent as ptr<void>)
-        }
+        release_candidate_memory(value.memory, observed)
         return true
     }
     if candidate_set_add(set, value) {
         return true
     }
-    if value.memory.recent != null and value.memory.recent != observed.recent {
-        free(value.memory.recent as ptr<void>)
-    }
+    release_candidate_memory(value.memory, observed)
     return false
 }
 
-function release_candidate_transcripts(candidates: CandidateSet, observed: Memory, retained: ptr<TurnRecord>) {
+function release_candidate_memory(candidate: Memory, observed: Memory) {
+    if candidate.recent != null and candidate.recent != observed.recent {
+        free(candidate.recent as ptr<void>)
+    }
+    if candidate.facts != null and candidate.facts != observed.facts {
+        facts_release(candidate.facts)
+    }
+}
+
+function release_candidate_memories(candidates: CandidateSet, observed: Memory) {
     for i in 0 to candidates.count {
-        let candidate: Proposal = candidates.values[i]
-        if candidate.memory.recent != null and candidate.memory.recent != observed.recent and candidate.memory.recent != retained {
-            free(candidate.memory.recent as ptr<void>)
-        }
+        release_candidate_memory(candidates.values[i].memory, observed)
     }
 }
 
@@ -830,6 +833,14 @@ function isolate_winning_transcript(memory: Memory) -> Memory {
     return isolate_winning_transcript_with_allocation(memory, copied)
 }
 
+function isolate_candidate_memory(memory: Memory) -> Memory {
+    let mut snapshot: Memory = isolate_winning_transcript(memory)
+    if memory.facts != null {
+        snapshot.facts = facts_clone(memory.facts)
+    }
+    return snapshot
+}
+
 function turn_with_candidate_trace(text: string, state: ptr<Memory>, traceCandidates: bool) -> Proposal {
     let previous: Memory = state[0]
     let reading: LineReading = understand_line(text, previous.topic)
@@ -843,12 +854,18 @@ function turn_with_candidate_trace(text: string, state: ptr<Memory>, traceCandid
         }
     }
     let mut committed: Proposal = winner
-    committed.memory = isolate_winning_transcript(winner.memory)
-    if committed.memory.recent != previous.recent and previous.recent != null {
-        free(previous.recent as ptr<void>)
+    committed.memory = isolate_candidate_memory(winner.memory)
+    if (winner.memory.recentCount > 0 and committed.memory.recent == winner.memory.recent) or
+       (winner.memory.facts != null and committed.memory.facts == null) {
+        println("FAIL: unable to isolate winning memory")
+        return proposal("", "allocation_failure", -10000, previous)
     }
     state[0] = run_after_hooks(text, committed, previous)
-    release_candidate_transcripts(candidates, observed, committed.memory.recent)
+    release_candidate_memories(candidates, observed)
+    if observed.recent != null {
+        free(observed.recent as ptr<void>)
+    }
+    facts_release(observed.facts)
     candidate_set_release(&candidates)
     return committed
 }
@@ -881,6 +898,34 @@ function read_line() -> InputLine {
 }
 
 function run_self_tests() -> i32 {
+    let mut factIsolation: Memory = fresh_memory()
+    factIsolation.facts = facts_note(null, "self", "name", "Alice", "initial", 1)
+    factIsolation.facts = facts_note(factIsolation.facts, "self", "city", "Cambridge", "initial", 2)
+    let mut firstCandidate: Memory = isolate_candidate_memory(factIsolation)
+    let secondCandidate: Memory = isolate_candidate_memory(factIsolation)
+    if firstCandidate.facts == null or secondCandidate.facts == null or
+       firstCandidate.facts == secondCandidate.facts or firstCandidate.facts == factIsolation.facts or
+       facts_count(firstCandidate.facts) != 2 {
+        println("FAIL: independent candidate fact chain ownership")
+        return 150
+    }
+    firstCandidate.facts = facts_note(firstCandidate.facts, "self", "name", "Bob", "candidate", 3)
+    if not same(facts_latest(secondCandidate.facts, "self", "name"), "Alice") or
+       not same(facts_latest(factIsolation.facts, "self", "name"), "Alice") {
+        println("FAIL: losing candidate fact writes must not affect another snapshot")
+        return 151
+    }
+    release_history(firstCandidate)
+    if not same(facts_latest(secondCandidate.facts, "self", "city"), "Cambridge") {
+        println("FAIL: releasing losing candidate must preserve surviving snapshot")
+        return 152
+    }
+    release_history(factIsolation)
+    if not same(facts_latest(secondCandidate.facts, "self", "name"), "Alice") {
+        println("FAIL: candidate fact chain must survive original history release")
+        return 153
+    }
+    release_history(secondCandidate)
     let observerBase: Memory = fresh_memory()
     let kettlebellReading: LineReading = understand_line("I train with kettlebells", "")
     let kettlebellObserved: Memory = run_observers("I train with kettlebells", observerBase, kettlebellReading)
@@ -1284,7 +1329,7 @@ function run_self_tests() -> i32 {
         println("FAIL: candidate transcript mutation leaked into session")
         return 85
     }
-    release_candidate_transcripts(independentCandidates, candidateObserved, null)
+    release_candidate_memories(independentCandidates, candidateObserved)
     candidate_set_release(&independentCandidates)
     release_history(candidateSource)
     let mut isolationSource: Memory = fresh_memory()
@@ -1314,7 +1359,7 @@ function run_self_tests() -> i32 {
         println("FAIL: candidate mutation must not change committed transcript")
         return 78
     }
-    release_candidate_transcripts(isolatedCandidates, candidateMemory, null)
+    release_candidate_memories(isolatedCandidates, candidateMemory)
     candidate_set_release(&isolatedCandidates)
     release_history(candidateMemory)
     let mut longTranscript: Memory = fresh_memory()
