@@ -898,6 +898,34 @@ function read_line() -> InputLine {
 }
 
 function run_self_tests() -> i32 {
+    let mut factIsolation: Memory = fresh_memory()
+    factIsolation.facts = facts_note(null, "self", "name", "Alice", "initial", 1)
+    factIsolation.facts = facts_note(factIsolation.facts, "self", "city", "Cambridge", "initial", 2)
+    let mut firstCandidate: Memory = isolate_candidate_memory(factIsolation)
+    let secondCandidate: Memory = isolate_candidate_memory(factIsolation)
+    if firstCandidate.facts == null or secondCandidate.facts == null or
+       firstCandidate.facts == secondCandidate.facts or firstCandidate.facts == factIsolation.facts or
+       facts_count(firstCandidate.facts) != 2 {
+        println("FAIL: independent candidate fact chain ownership")
+        return 150
+    }
+    firstCandidate.facts = facts_note(firstCandidate.facts, "self", "name", "Bob", "candidate", 3)
+    if not same(facts_latest(secondCandidate.facts, "self", "name"), "Alice") or
+       not same(facts_latest(factIsolation.facts, "self", "name"), "Alice") {
+        println("FAIL: losing candidate fact writes must not affect another snapshot")
+        return 151
+    }
+    release_history(firstCandidate)
+    if not same(facts_latest(secondCandidate.facts, "self", "city"), "Cambridge") {
+        println("FAIL: releasing losing candidate must preserve surviving snapshot")
+        return 152
+    }
+    release_history(factIsolation)
+    if not same(facts_latest(secondCandidate.facts, "self", "name"), "Alice") {
+        println("FAIL: candidate fact chain must survive original history release")
+        return 153
+    }
+    release_history(secondCandidate)
     let observerBase: Memory = fresh_memory()
     let kettlebellReading: LineReading = understand_line("I train with kettlebells", "")
     let kettlebellObserved: Memory = run_observers("I train with kettlebells", observerBase, kettlebellReading)
