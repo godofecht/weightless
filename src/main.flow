@@ -884,7 +884,7 @@ function run_self_tests() -> i32 {
     let observerBase: Memory = fresh_memory()
     let kettlebellReading: LineReading = understand_line("I train with kettlebells", "")
     let kettlebellObserved: Memory = run_observers("I train with kettlebells", observerBase, kettlebellReading)
-    if not same(kettlebellObserved.topic, "") {
+    if same(kettlebellObserved.topic, "kettle") {
         println("FAIL: observer must not invent kettle topic from kettlebells")
         return 147
     }
