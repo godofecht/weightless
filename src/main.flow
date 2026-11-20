@@ -672,12 +672,12 @@ function after_transcript(text: string, winning: Proposal, memory: Memory) -> Me
 }
 
 function run_after_hooks(text: string, winning: Proposal, previous: Memory) -> Memory {
-    let corrected: Memory = after_correction(text, winning.memory)
-    let mut recorded: Memory = after_transcript(text, winning, corrected)
-    if recorded.recentCount == previous.recentCount + 1 {
-        recorded.turns = previous.turns + 1
+    let mut recorded: Memory = after_transcript(text, winning, winning.memory)
+    if recorded.recentCount != previous.recentCount + 1 {
+        return recorded
     }
-    return recorded
+    recorded.turns = previous.turns + 1
+    return after_correction(text, recorded)
 }
 
 function topic_specialist_fit(candidate: Proposal, topic: string) -> bool {
@@ -943,6 +943,14 @@ function run_self_tests() -> i32 {
     if failedAfter.turns != appendFailure.turns or failedAfter.recentCount != appendFailure.recentCount {
         println("FAIL: failed transcript append must not advance turn counter")
         return 154
+    }
+    let failedCorrection: Memory = run_after_hooks("call me Bob", proposal("hi", "test", 1, appendFailure), appendFailure)
+    if not same(failedCorrection.name, appendFailure.name) or
+       failedCorrection.facts != appendFailure.facts or
+       failedCorrection.turns != appendFailure.turns or
+       failedCorrection.recentCount != appendFailure.recentCount {
+        println("FAIL: failed transcript append must not commit name correction or fact history")
+        return 156
     }
     let mut factIsolation: Memory = fresh_memory()
     factIsolation.facts = facts_note(null, "self", "name", "Alice", "initial", 1)
