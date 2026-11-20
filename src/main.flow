@@ -676,8 +676,9 @@ function run_after_hooks(text: string, winning: Proposal, previous: Memory) -> M
     if recorded.recentCount != previous.recentCount + 1 {
         return recorded
     }
-    recorded.turns = previous.turns + 1
-    return after_correction(text, recorded)
+    let mut corrected: Memory = after_correction(text, recorded)
+    corrected.turns = previous.turns + 1
+    return corrected
 }
 
 function topic_specialist_fit(candidate: Proposal, topic: string) -> bool {
