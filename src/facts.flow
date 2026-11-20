@@ -40,6 +40,45 @@ export function facts_note(
     return node
 }
 
+export function facts_clone(head: ptr<FactNode>) -> ptr<FactNode> {
+    let count: i32 = facts_count(head)
+    if count == 0 {
+        return null
+    }
+    let entries: ptr<ptr<FactNode>> = malloc((count as i64) * sizeof<ptr<FactNode>>()) as ptr<ptr<FactNode>>
+    if entries == null {
+        return null
+    }
+    let mut current: ptr<FactNode> = head
+    for i in 0 to count {
+        entries[i] = current
+        current = current[0].previous
+    }
+    let mut copied: ptr<FactNode> = null
+    let mut i: i32 = count
+    while i > 0 {
+        i = i - 1
+        let source: FactNode = entries[i][0]
+        let node: ptr<FactNode> = malloc(sizeof<FactNode>()) as ptr<FactNode>
+        if node == null {
+            facts_release(copied)
+            free(entries as ptr<void>)
+            return null
+        }
+        node[0] = FactNode {
+            owner: source.owner,
+            key: source.key,
+            value: source.value,
+            source: source.source,
+            turn: source.turn,
+            previous: copied
+        }
+        copied = node
+    }
+    free(entries as ptr<void>)
+    return copied
+}
+
 export function facts_latest(head: ptr<FactNode>, owner: string, key: string) -> string {
     let mut node: ptr<FactNode> = head
     while node != null {
