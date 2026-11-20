@@ -458,12 +458,11 @@ function knowledge_reply(text: string, lower: string, memory: Memory) -> Proposa
         }
         return proposal(hit.reply, hit.module, 300 + hit.score, memory)
     }
-    if contains(lower, "how long") and
-       (same(memory.topic, "kettle") or contains(lower, "kettle") or
-        contains(lower, "limescale") or contains(lower, "descale")) {
+    let reading: LineReading = understand_line(text, memory.topic)
+    if same(reading.topic, "kettle") and contains(lower, "how long") {
         return proposal("Half an hour.", "kettle_followup", 300, memory)
     }
-    if contains(lower, "kettle") or contains(lower, "limescale") or contains(lower, "descale") {
+    if same(reading.topic, "kettle") {
         return proposal("Half fill the kettle with equal parts water and white vinegar, boil it, leave it for half an hour, then rinse thoroughly and boil fresh water twice.", "kettle", 300, memory)
     }
     if contains(lower, "onions") and contains(lower, "cry") {
