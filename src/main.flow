@@ -764,22 +764,32 @@ function collect_responses(text: string, reading: LineReading, previous: Memory,
     let greetingMemory: Memory = isolate_candidate_memory(observed)
     if responder_snapshot_ready(observed, greetingMemory) {
         let _g: bool = candidate_set_add_owned(&candidates, greeting_reply(text, clean, greetingMemory, previous, reading), observed)
+    } else {
+        release_candidate_memory(greetingMemory, observed)
     }
     let knowledgeMemory: Memory = isolate_candidate_memory(observed)
     if responder_snapshot_ready(observed, knowledgeMemory) {
         let _k: bool = candidate_set_add_owned(&candidates, knowledge_reply(text, clean, knowledgeMemory), observed)
+    } else {
+        release_candidate_memory(knowledgeMemory, observed)
     }
     let nameMemory: Memory = isolate_candidate_memory(observed)
     if responder_snapshot_ready(observed, nameMemory) {
         let _n: bool = candidate_set_add_owned(&candidates, name_reply(text, clean, nameMemory), observed)
+    } else {
+        release_candidate_memory(nameMemory, observed)
     }
     let recallMemory: Memory = isolate_candidate_memory(observed)
     if responder_snapshot_ready(observed, recallMemory) {
         let _r: bool = candidate_set_add_owned(&candidates, recall_reply(clean, recallMemory), observed)
+    } else {
+        release_candidate_memory(recallMemory, observed)
     }
     let factMemory: Memory = isolate_candidate_memory(observed)
     if responder_snapshot_ready(observed, factMemory) {
         let _f: bool = candidate_set_add_owned(&candidates, fact_reply(clean, factMemory), observed)
+    } else {
+        release_candidate_memory(factMemory, observed)
     }
     return candidates
 }
