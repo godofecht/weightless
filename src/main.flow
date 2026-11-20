@@ -884,6 +884,29 @@ function read_line() -> InputLine {
 }
 
 function run_self_tests() -> i32 {
+    let noTopicMemory: Memory = fresh_memory()
+    let descalerFallback: Proposal = knowledge_reply("Is descaler safe?", "is descaler safe?", noTopicMemory)
+    if same(descalerFallback.module, "kettle") or same(descalerFallback.module, "kettle_followup") {
+        println("FAIL: descaler must not trigger substring kettle fallback")
+        return 143
+    }
+    let kettlebellFallback: Proposal = knowledge_reply("Can I lift a kettlebell?", "can i lift a kettlebell?", noTopicMemory)
+    if same(kettlebellFallback.module, "kettle") or same(kettlebellFallback.module, "kettle_followup") {
+        println("FAIL: kettlebell must not trigger substring kettle fallback")
+        return 144
+    }
+    let kettleFallback: Proposal = knowledge_reply("Can I descale the kettle?", "can i descale the kettle?", noTopicMemory)
+    if not same(kettleFallback.module, "kettle") {
+        println("FAIL: explicit kettle topic must retain fallback")
+        return 145
+    }
+    let mut inheritedKettle: Memory = fresh_memory()
+    inheritedKettle.topic = "kettle"
+    let durationFallback: Proposal = knowledge_reply("How long does that take?", "how long does that take?", inheritedKettle)
+    if not same(durationFallback.module, "kettle_followup") {
+        println("FAIL: inherited kettle duration must retain follow-up fallback")
+        return 146
+    }
     let pronounIt: LineReading = understand_line("Is it safe?", "cooking")
     if not pronounIt.followup or not same(pronounIt.topic, "cooking") {
         println("FAIL: it must inherit active food topic")
