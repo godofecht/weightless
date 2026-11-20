@@ -671,7 +671,9 @@ function after_transcript(text: string, winning: Proposal, memory: Memory) -> Me
 function run_after_hooks(text: string, winning: Proposal, previous: Memory) -> Memory {
     let corrected: Memory = after_correction(text, winning.memory)
     let mut recorded: Memory = after_transcript(text, winning, corrected)
-    recorded.turns = previous.turns + 1
+    if recorded.recentCount == previous.recentCount + 1 {
+        recorded.turns = previous.turns + 1
+    }
     return recorded
 }
 
@@ -877,7 +879,18 @@ function turn_with_candidate_trace(text: string, state: ptr<Memory>, traceCandid
         candidate_set_release(&candidates)
         return proposal("", "allocation_failure", -10000, previous)
     }
-    state[0] = run_after_hooks(text, committed, previous)
+    let after: Memory = run_after_hooks(text, committed, previous)
+    if after.recentCount != previous.recentCount + 1 {
+        release_history(after)
+        release_candidate_memories(candidates, observed)
+        if observed.recent != null {
+            free(observed.recent as ptr<void>)
+        }
+        facts_release(observed.facts)
+        candidate_set_release(&candidates)
+        return proposal("", "allocation_failure", -10000, previous)
+    }
+    state[0] = after
     release_candidate_memories(candidates, observed)
     if observed.recent != null {
         free(observed.recent as ptr<void>)
@@ -915,6 +928,14 @@ function read_line() -> InputLine {
 }
 
 function run_self_tests() -> i32 {
+    let mut appendFailure: Memory = fresh_memory()
+    appendFailure.recentCount = 1073741824
+    appendFailure.recentCapacity = 1073741824
+    let failedAfter: Memory = run_after_hooks("hello", proposal("hi", "test", 1, appendFailure), appendFailure)
+    if failedAfter.turns != appendFailure.turns or failedAfter.recentCount != appendFailure.recentCount {
+        println("FAIL: failed transcript append must not advance turn counter")
+        return 154
+    }
     let mut factIsolation: Memory = fresh_memory()
     factIsolation.facts = facts_note(null, "self", "name", "Alice", "initial", 1)
     factIsolation.facts = facts_note(factIsolation.facts, "self", "city", "Cambridge", "initial", 2)
