@@ -858,6 +858,13 @@ function turn_with_candidate_trace(text: string, state: ptr<Memory>, traceCandid
     if (winner.memory.recentCount > 0 and committed.memory.recent == winner.memory.recent) or
        (winner.memory.facts != null and committed.memory.facts == null) {
         println("FAIL: unable to isolate winning memory")
+        release_candidate_memory(committed.memory, winner.memory)
+        release_candidate_memories(candidates, observed)
+        if observed.recent != null {
+            free(observed.recent as ptr<void>)
+        }
+        facts_release(observed.facts)
+        candidate_set_release(&candidates)
         return proposal("", "allocation_failure", -10000, previous)
     }
     state[0] = run_after_hooks(text, committed, previous)
