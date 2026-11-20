@@ -331,9 +331,6 @@ function observe(text: string, memory: Memory) -> Memory {
             }
         }
     }
-    if contains(lower, "kettle") or contains(lower, "limescale") or contains(lower, "descale") {
-        next.topic = "kettle"
-    }
     return next
 }
 
@@ -884,6 +881,25 @@ function read_line() -> InputLine {
 }
 
 function run_self_tests() -> i32 {
+    let observerBase: Memory = fresh_memory()
+    let kettlebellReading: LineReading = understand_line("I train with kettlebells", "")
+    let kettlebellObserved: Memory = run_observers("I train with kettlebells", observerBase, kettlebellReading)
+    if same(kettlebellObserved.topic, "kettle") {
+        println("FAIL: observer must not invent kettle topic from kettlebells")
+        return 147
+    }
+    let descalerReading: LineReading = understand_line("I bought descaler", "")
+    let descalerObserved: Memory = run_observers("I bought descaler", observerBase, descalerReading)
+    if not same(descalerObserved.topic, "") {
+        println("FAIL: observer must not invent kettle topic from descaler")
+        return 148
+    }
+    let kettleReading: LineReading = understand_line("I need to descale my kettle", "")
+    let kettleObserved: Memory = run_observers("I need to descale my kettle", observerBase, kettleReading)
+    if not same(kettleObserved.topic, "kettle") {
+        println("FAIL: structured observer must preserve explicit kettle topic")
+        return 149
+    }
     let noTopicMemory: Memory = fresh_memory()
     let descalerFallback: Proposal = knowledge_reply("Is descaler safe?", "is descaler safe?", noTopicMemory)
     if same(descalerFallback.module, "kettle") or same(descalerFallback.module, "kettle_followup") {
