@@ -1835,18 +1835,18 @@ function run_self_tests() -> i32 {
     repeatedQuestion.lastReply = "Original response"
     let mut repeatedCandidates: CandidateSet = candidate_set_new()
     let _old: bool = candidate_set_add(&repeatedCandidates,
-        proposal("Original response", "original", 200, repeatedQuestion))
+        proposal("Original response", "alpha_original", 200, repeatedQuestion))
     let _new: bool = candidate_set_add(&repeatedCandidates,
-        proposal("Novel response", "novel", 200, repeatedQuestion))
+        proposal("Novel response", "zeta_novel", 200, repeatedQuestion))
     let repeatPick: Proposal = choose_for_text(repeatedCandidates, repeatedQuestion,
         repeatedQuestion, "what should i do?")
-    if not same(repeatPick.module, "original") {
+    if not same(repeatPick.module, "alpha_original") {
         println("FAIL: consecutive same question preserves highest-priority original answer")
         return 55
     }
     let changedPick: Proposal = choose_for_text(repeatedCandidates, repeatedQuestion,
         repeatedQuestion, "what else should i do?")
-    if not same(changedPick.module, "novel") {
+    if not same(changedPick.module, "zeta_novel") {
         println("FAIL: different question still prefers novel equal-priority reply")
         return 56
     }
