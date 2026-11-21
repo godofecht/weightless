@@ -1649,7 +1649,7 @@ function run_self_tests() -> i32 {
         println("FAIL: knowledge entry requires both matching groups")
         return 21
     }
-    if knowledge_corpus_count() != 5 {
+    if knowledge_corpus_count() != 7 {
         println("FAIL: source corpus count")
         return 22
     }

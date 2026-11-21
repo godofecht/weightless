@@ -43,7 +43,7 @@ function main() -> i32 {
         println("FAIL: desk entry specificity ranking")
         return 8
     }
-    if knowledge_corpus_count() != 5 {
+    if knowledge_corpus_count() != 7 {
         println("FAIL: source-attributed corpus load")
         return 9
     }
@@ -57,7 +57,22 @@ function main() -> i32 {
         println("FAIL: exclusions still take precedence over positive match")
         return 11
     }
+    let radiator: KnowledgeHit = knowledge_lookup("the radiator is clattering")
+    if not same(radiator.entry, "radiator-plain-noise") {
+        println("FAIL: source radiator noise entry")
+        return 12
+    }
+    let laptop: KnowledgeHit = knowledge_lookup("my laptop is making a racket")
+    if not same(laptop.entry, "laptop-fan-plain-noise") {
+        println("FAIL: source laptop fan noise entry")
+        return 13
+    }
+    let radiatorLeak: KnowledgeHit = knowledge_lookup("my radiator is leaking and clattering")
+    if same(radiatorLeak.entry, "radiator-plain-noise") {
+        println("FAIL: radiator noise exclusion")
+        return 14
+    }
     knowledge_corpus_release()
-    println("PASS: 11 source-weighting Flow regressions")
+    println("PASS: 14 source-weighting Flow regressions")
     return 0
 }
