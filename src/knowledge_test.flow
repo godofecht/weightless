@@ -43,7 +43,7 @@ function main() -> i32 {
         println("FAIL: desk entry specificity ranking")
         return 8
     }
-    if knowledge_corpus_count() != 10 {
+    if knowledge_corpus_count() != 11 {
         println("FAIL: source-attributed corpus load")
         return 9
     }
@@ -107,7 +107,17 @@ function main() -> i32 {
         println("FAIL: spoken accent exclusion")
         return 21
     }
+    let batteryPrice: KnowledgeHit = knowledge_lookup("how much does a battery cost")
+    if not same(batteryPrice.entry, "phone-battery-replace") {
+        println("FAIL: source phone battery replacement pricing")
+        return 22
+    }
+    let bikeBattery: KnowledgeHit = knowledge_lookup("how much does an ebike battery cost")
+    if same(bikeBattery.entry, "phone-battery-replace") {
+        println("FAIL: vehicle battery price exclusion")
+        return 23
+    }
     knowledge_corpus_release()
-    println("PASS: 21 source-weighting Flow regressions")
+    println("PASS: 23 source-weighting Flow regressions")
     return 0
 }
