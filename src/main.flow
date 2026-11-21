@@ -765,10 +765,7 @@ function observe_topic(reading: LineReading, memory: Memory) -> Memory {
 
 function run_observers(text: string, previous: Memory, reading: LineReading) -> Memory {
     let withFacts: Memory = observe(text, previous)
-    let withTopic: Memory = observe_topic(reading, previous)
-    withTopic.name = withFacts.name
-    withTopic.facts = withFacts.facts
-    return withTopic
+    return observe_topic(reading, withFacts)
 }
 
 function responder_snapshot_ready(observed: Memory, snapshot: Memory) -> bool {
@@ -1032,6 +1029,16 @@ function run_self_tests() -> i32 {
         return 153
     }
     release_history(secondCandidate)
+    let combinedReading: LineReading = understand_line("Hi, my name is Alice and I bought a kettle", "")
+    let combinedObserved: Memory = run_observers("Hi, my name is Alice and I bought a kettle", fresh_memory(), combinedReading)
+    if not same(combinedObserved.name, "Alice") or
+       not same(combinedObserved.topic, "kettle") or
+       not same(facts_latest(combinedObserved.facts, "self", "name"), "Alice") {
+        println("FAIL: ordered observers must retain both name facts and topic")
+        facts_release(combinedObserved.facts)
+        return 160
+    }
+    facts_release(combinedObserved.facts)
     let observerBase: Memory = fresh_memory()
     let kettlebellReading: LineReading = understand_line("I train with kettlebells", "")
     let kettlebellObserved: Memory = run_observers("I train with kettlebells", observerBase, kettlebellReading)
