@@ -43,7 +43,7 @@ function main() -> i32 {
         println("FAIL: desk entry specificity ranking")
         return 8
     }
-    if knowledge_corpus_count() != 8 {
+    if knowledge_corpus_count() != 9 {
         println("FAIL: source-attributed corpus load")
         return 9
     }
@@ -87,7 +87,17 @@ function main() -> i32 {
         println("FAIL: wifi entry must require a connection word")
         return 17
     }
+    let speedBuy: KnowledgeHit = knowledge_lookup("what broadband speed do i need")
+    if not same(speedBuy.entry, "broadband-speed-to-buy") {
+        println("FAIL: source broadband buying advice")
+        return 18
+    }
+    let diet: KnowledgeHit = knowledge_lookup("is fibre broadband good for my ibs diet")
+    if same(diet.entry, "broadband-speed-to-buy") {
+        println("FAIL: dietary fibre exclusion")
+        return 19
+    }
     knowledge_corpus_release()
-    println("PASS: 17 source-weighting Flow regressions")
+    println("PASS: 19 source-weighting Flow regressions")
     return 0
 }
