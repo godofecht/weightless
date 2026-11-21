@@ -765,7 +765,10 @@ function observe_topic(reading: LineReading, memory: Memory) -> Memory {
 
 function run_observers(text: string, previous: Memory, reading: LineReading) -> Memory {
     let withFacts: Memory = observe(text, previous)
-    return observe_topic(reading, withFacts)
+    let withTopic: Memory = observe_topic(reading, previous)
+    withTopic.name = withFacts.name
+    withTopic.facts = withFacts.facts
+    return withTopic
 }
 
 function responder_snapshot_ready(observed: Memory, snapshot: Memory) -> bool {
@@ -941,6 +944,22 @@ function read_line() -> InputLine {
 }
 
 function run_self_tests() -> i32 {
+    let mut observerFailureSeed: Memory = fresh_memory()
+    observerFailureSeed.name = "Alice"
+    observerFailureSeed.topic = "old-topic"
+    observerFailureSeed.facts = facts_note(null, "self", "name", "Alice", "initial", 1)
+    let failedObserverFacts: Memory = commit_name_fact(observerFailureSeed, "Bob", observerFailureSeed.facts)
+    let mut independentTopicReading: LineReading = understand_line("How do I descale a kettle?", "")
+    independentTopicReading.topic = "kettle"
+    let topicAfterFactFailure: Memory = observe_topic(independentTopicReading, failedObserverFacts)
+    if not same(topicAfterFactFailure.name, "Alice") or
+       topicAfterFactFailure.facts != observerFailureSeed.facts or
+       not same(topicAfterFactFailure.topic, "kettle") {
+        println("FAIL: topic observer must run independently of failed fact commit")
+        facts_release(observerFailureSeed.facts)
+        return 159
+    }
+    facts_release(observerFailureSeed.facts)
     let mut nameFailureSeed: Memory = fresh_memory()
     nameFailureSeed.name = "Alice"
     nameFailureSeed.facts = facts_note(null, "self", "name", "Alice", "initial", 1)
@@ -2098,7 +2117,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 158 Flow runtime regression scenarios")
+    println("PASS: 159 Flow runtime regression scenarios")
     return 0
 }
 
