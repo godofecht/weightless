@@ -43,7 +43,7 @@ function main() -> i32 {
         println("FAIL: desk entry specificity ranking")
         return 8
     }
-    if knowledge_corpus_count() != 9 {
+    if knowledge_corpus_count() != 10 {
         println("FAIL: source-attributed corpus load")
         return 9
     }
@@ -97,7 +97,17 @@ function main() -> i32 {
         println("FAIL: dietary fibre exclusion")
         return 19
     }
+    let accent: KnowledgeHit = knowledge_lookup("how do i type an accented letter")
+    if not same(accent.entry, "type-an-accent") {
+        println("FAIL: source accent typing advice")
+        return 20
+    }
+    let speaking: KnowledgeHit = knowledge_lookup("how do i lose my british accent when speaking")
+    if same(speaking.entry, "type-an-accent") {
+        println("FAIL: spoken accent exclusion")
+        return 21
+    }
     knowledge_corpus_release()
-    println("PASS: 19 source-weighting Flow regressions")
+    println("PASS: 21 source-weighting Flow regressions")
     return 0
 }
