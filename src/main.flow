@@ -371,7 +371,17 @@ function candidate_set_add(set: ptr<CandidateSet>, value: Proposal) -> bool {
         set[0].values = allocation
         set[0].capacity = capacity
     }
-    set[0].values[set[0].count] = value
+    let mut insertion: i32 = set[0].count
+    while insertion > 0 {
+        let prior: Proposal = set[0].values[insertion - 1]
+        if prior.priority > value.priority or
+           (prior.priority == value.priority and strcmp(prior.module, value.module) <= 0) {
+            break
+        }
+        set[0].values[insertion] = prior
+        insertion = insertion - 1
+    }
+    set[0].values[insertion] = value
     set[0].count = set[0].count + 1
     return true
 }
@@ -941,6 +951,22 @@ function read_line() -> InputLine {
 }
 
 function run_self_tests() -> i32 {
+    let mut orderedCandidates: CandidateSet = candidate_set_new()
+    let emptyCandidateMemory: Memory = fresh_memory()
+    let addZ: bool = candidate_set_add(&orderedCandidates, proposal("z", "zeta", 500, emptyCandidateMemory))
+    let addB: bool = candidate_set_add(&orderedCandidates, proposal("b", "beta", 7000, emptyCandidateMemory))
+    let addA: bool = candidate_set_add(&orderedCandidates, proposal("a", "alpha", 7000, emptyCandidateMemory))
+    let addC: bool = candidate_set_add(&orderedCandidates, proposal("c", "alpha", 500, emptyCandidateMemory))
+    if not addZ or not addB or not addA or not addC or orderedCandidates.count != 4 or
+       not same(orderedCandidates.values[0].reply, "a") or
+       not same(orderedCandidates.values[1].reply, "b") or
+       not same(orderedCandidates.values[2].reply, "c") or
+       not same(orderedCandidates.values[3].reply, "z") {
+        println("FAIL: candidates must be ordered by descending priority then module filename")
+        candidate_set_release(&orderedCandidates)
+        return 161
+    }
+    candidate_set_release(&orderedCandidates)
     let mut observerFailureSeed: Memory = fresh_memory()
     observerFailureSeed.name = "Alice"
     observerFailureSeed.topic = "old-topic"
