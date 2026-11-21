@@ -208,6 +208,15 @@ function extract_fact_value(text: string, start: i32, maxWords: i32) -> string {
     return value
 }
 
+function commit_name_fact(memory: Memory, name: string, recordedFacts: ptr<FactNode>) -> Memory {
+    let mut next: Memory = memory
+    if recordedFacts != memory.facts {
+        next.facts = recordedFacts
+        next.name = name
+    }
+    return next
+}
+
 function observe(text: string, memory: Memory) -> Memory {
     let mut next: Memory = memory
     let lower: string = lower_ascii(text)
@@ -245,8 +254,8 @@ function observe(text: string, memory: Memory) -> Memory {
         if not same(name, "") {
             let initial: u8 = (name as ptr<u8>)[0]
             if explicitName or (initial >= 65 and initial <= 90) {
-                next.name = name
-                next.facts = facts_note(next.facts, "self", "name", name, text, next.turns + 1)
+                let recordedFacts: ptr<FactNode> = facts_note(next.facts, "self", "name", name, text, next.turns + 1)
+                next = commit_name_fact(next, name, recordedFacts)
             }
         }
     }
@@ -650,8 +659,8 @@ function after_correction(text: string, memory: Memory) -> Memory {
     }
     let name: string = extract_word(trimmed(text), at)
     if not same(name, "") {
-        after.name = name
-        after.facts = facts_note(after.facts, "self", "name", name, text, after.turns + 1)
+        let recordedFacts: ptr<FactNode> = facts_note(after.facts, "self", "name", name, text, after.turns + 1)
+        after = commit_name_fact(after, name, recordedFacts)
     }
     return after
 }
@@ -932,6 +941,29 @@ function read_line() -> InputLine {
 }
 
 function run_self_tests() -> i32 {
+    let mut nameFailureSeed: Memory = fresh_memory()
+    nameFailureSeed.name = "Alice"
+    nameFailureSeed.facts = facts_note(null, "self", "name", "Alice", "initial", 1)
+    let failedNameObservation: Memory = commit_name_fact(nameFailureSeed, "Bob", nameFailureSeed.facts)
+    if not same(failedNameObservation.name, "Alice") or
+       failedNameObservation.facts != nameFailureSeed.facts {
+        println("FAIL: failed fact allocation must not commit observer name")
+        return 157
+    }
+    let successfulNameFacts: ptr<FactNode> = facts_note(nameFailureSeed.facts, "self", "name", "Bob", "correction", 2)
+    if successfulNameFacts == nameFailureSeed.facts {
+        println("FAIL: unable to allocate name fact for regression")
+        facts_release(nameFailureSeed.facts)
+        return 158
+    }
+    let successfulNameObservation: Memory = commit_name_fact(nameFailureSeed, "Bob", successfulNameFacts)
+    if not same(successfulNameObservation.name, "Bob") or
+       not same(facts_latest(successfulNameObservation.facts, "self", "name"), "Bob") {
+        println("FAIL: successful name fact must commit name and history together")
+        facts_release(successfulNameObservation.facts)
+        return 158
+    }
+    facts_release(successfulNameObservation.facts)
     let mut appendFailure: Memory = fresh_memory()
     appendFailure.recentCount = 1073741824
     appendFailure.recentCapacity = 1073741824
@@ -2066,7 +2098,7 @@ function run_self_tests() -> i32 {
     release_history(memory)
     release_history(longMemory)
     knowledge_corpus_release()
-    println("PASS: 142 Flow runtime regression scenarios")
+    println("PASS: 158 Flow runtime regression scenarios")
     return 0
 }
 
