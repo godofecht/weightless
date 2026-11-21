@@ -970,7 +970,6 @@ function run_self_tests() -> i32 {
     snapshotA.recent[0] = TurnRecord { user: "changed", bot: "changed", module: "changed" }
     let changedFacts: ptr<FactNode> = facts_note(snapshotA.facts, "self", "name", "Bob", "candidate", 2)
     if changedFacts != snapshotA.facts {
-        facts_release(snapshotA.facts)
         snapshotA.facts = changedFacts
     }
     if not same(snapshotSeed.name, "Alice") or not same(snapshotB.name, "Alice") or
