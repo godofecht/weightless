@@ -951,6 +951,41 @@ function read_line() -> InputLine {
 }
 
 function run_self_tests() -> i32 {
+    let mut snapshotSeed: Memory = fresh_memory()
+    snapshotSeed.name = "Alice"
+    snapshotSeed.facts = facts_note(null, "self", "name", "Alice", "initial", 1)
+    snapshotSeed = append_turn(snapshotSeed, TurnRecord { user: "hello", bot: "hi", module: "greeting" })
+    let mut snapshotA: Memory = isolate_candidate_memory(snapshotSeed)
+    let mut snapshotB: Memory = isolate_candidate_memory(snapshotSeed)
+    if not responder_snapshot_ready(snapshotSeed, snapshotA) or
+       not responder_snapshot_ready(snapshotSeed, snapshotB) or
+       snapshotA.recent == snapshotB.recent or snapshotA.facts == snapshotB.facts {
+        println("FAIL: responder snapshots must independently own transcript and facts")
+        release_candidate_memory(snapshotA, snapshotSeed)
+        release_candidate_memory(snapshotB, snapshotSeed)
+        release_history(snapshotSeed)
+        return 162
+    }
+    snapshotA.name = "Bob"
+    snapshotA.recent[0] = TurnRecord { user: "changed", bot: "changed", module: "changed" }
+    let changedFacts: ptr<FactNode> = facts_note(snapshotA.facts, "self", "name", "Bob", "candidate", 2)
+    if changedFacts != snapshotA.facts {
+        snapshotA.facts = changedFacts
+    }
+    if not same(snapshotSeed.name, "Alice") or not same(snapshotB.name, "Alice") or
+       not same(snapshotSeed.recent[0].user, "hello") or
+       not same(snapshotB.recent[0].user, "hello") or
+       not same(facts_latest(snapshotSeed.facts, "self", "name"), "Alice") or
+       not same(facts_latest(snapshotB.facts, "self", "name"), "Alice") {
+        println("FAIL: losing responder mutations must not leak to other snapshots")
+        release_candidate_memory(snapshotA, snapshotSeed)
+        release_candidate_memory(snapshotB, snapshotSeed)
+        release_history(snapshotSeed)
+        return 163
+    }
+    release_candidate_memory(snapshotA, snapshotSeed)
+    release_candidate_memory(snapshotB, snapshotSeed)
+    release_history(snapshotSeed)
     let mut orderedCandidates: CandidateSet = candidate_set_new()
     let emptyCandidateMemory: Memory = fresh_memory()
     let addZ: bool = candidate_set_add(&orderedCandidates, proposal("z", "zeta", 500, emptyCandidateMemory))
