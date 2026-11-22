@@ -488,6 +488,27 @@ function knowledge_reply(text: string, lower: string, memory: Memory) -> Proposa
 }
 
 function recall_reply(lower: string, memory: Memory) -> Proposal {
+    if contains(lower, "which module answered one turn ago") or contains(lower, "which module answered 1 turn ago") {
+        let prior: TurnRecord = recent_turn(memory, 1)
+        if same(prior.module, "") {
+            return proposal("I don't have a module from one turn ago.", "recall", 7000, memory)
+        }
+        return proposal("The module was " + prior.module + ".", "recall", 7000, memory)
+    }
+    if contains(lower, "what did you say one turn ago") or contains(lower, "what did you say 1 turn ago") {
+        let prior: TurnRecord = recent_turn(memory, 1)
+        if same(prior.bot, "") {
+            return proposal("I don't have an answer from one turn ago.", "recall", 7000, memory)
+        }
+        return proposal("I said: " + prior.bot, "recall", 7000, memory)
+    }
+    if contains(lower, "what did i say one turn ago") or contains(lower, "what did i say 1 turn ago") {
+        let prior: TurnRecord = recent_turn(memory, 1)
+        if same(prior.user, "") {
+            return proposal("I don't have a message from one turn ago.", "recall", 7000, memory)
+        }
+        return proposal("You said: " + prior.user, "recall", 7000, memory)
+    }
     if contains(lower, "which module answered four turns ago") or contains(lower, "which module answered 4 turns ago") {
         let prior: TurnRecord = recent_turn(memory, 4)
         if same(prior.module, "") {
@@ -954,6 +975,22 @@ function read_line() -> InputLine {
 }
 
 function run_self_tests() -> i32 {
+    let oneTurnEmpty: Memory = fresh_memory()
+    if not same(recall_reply("what did i say one turn ago", oneTurnEmpty).reply,
+                "I don't have a message from one turn ago.") {
+        println("FAIL: one-turn recall must handle empty transcript")
+        return 166
+    }
+    let oneTurnHistory: Memory = append_turn(oneTurnEmpty,
+        TurnRecord { user: "earlier user", bot: "earlier reply", module: "greeting" })
+    if not same(recall_reply("what did i say 1 turn ago", oneTurnHistory).reply, "You said: earlier user") or
+       not same(recall_reply("what did you say one turn ago", oneTurnHistory).reply, "I said: earlier reply") or
+       not same(recall_reply("which module answered 1 turn ago", oneTurnHistory).reply, "The module was greeting.") {
+        println("FAIL: one-turn recall must preserve user, reply and module")
+        release_history(oneTurnHistory)
+        return 167
+    }
+    release_history(oneTurnHistory)
     let mut hookSeed: Memory = fresh_memory()
     hookSeed = append_turn(hookSeed, TurnRecord { user: "previous", bot: "earlier", module: "greeting" })
     hookSeed.turns = 1
