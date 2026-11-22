@@ -36,7 +36,9 @@ struct Proposal {
     reply: string,
     module: string,
     priority: i32,
-    memory: Memory
+    memory: Memory,
+    topic: string,
+    entry: string
 }
 
 struct InputLine {
@@ -344,7 +346,11 @@ function observe(text: string, memory: Memory) -> Memory {
 }
 
 function proposal(reply: string, module: string, priority: i32, memory: Memory) -> Proposal {
-    return Proposal { reply: reply, module: module, priority: priority, memory: memory }
+    return Proposal { reply: reply, module: module, priority: priority, memory: memory, topic: "", entry: "" }
+}
+
+function attributed_proposal(reply: string, module: string, priority: i32, memory: Memory, topic: string, entry: string) -> Proposal {
+    return Proposal { reply: reply, module: module, priority: priority, memory: memory, topic: topic, entry: entry }
 }
 
 function candidate_set_new() -> CandidateSet {
@@ -478,16 +484,16 @@ function knowledge_reply(text: string, lower: string, memory: Memory) -> Proposa
     if hit.score > 0 {
         let safetyPriority: i32 = knowledge_safety_priority(hit)
         if safetyPriority >= 9000 {
-            return proposal(hit.reply, hit.module, safetyPriority, memory)
+            return attributed_proposal(hit.reply, hit.module, safetyPriority, memory, "", hit.entry)
         }
-        return proposal(hit.reply, hit.module, 300 + hit.score, memory)
+        return attributed_proposal(hit.reply, hit.module, 300 + hit.score, memory, "", hit.entry)
     }
     let reading: LineReading = understand_line(text, memory.topic)
     if same(reading.topic, "kettle") and contains(lower, "how long") {
-        return proposal("Half an hour.", "kettle_followup", 300, memory)
+        return attributed_proposal("Half an hour.", "kettle_followup", 300, memory, "kettle", "kettle-duration")
     }
     if same(reading.topic, "kettle") {
-        return proposal("Half fill the kettle with equal parts water and white vinegar, boil it, leave it for half an hour, then rinse thoroughly and boil fresh water twice.", "kettle", 300, memory)
+        return attributed_proposal("Half fill the kettle with equal parts water and white vinegar, boil it, leave it for half an hour, then rinse thoroughly and boil fresh water twice.", "kettle", 300, memory, "kettle", "kettle-descale")
     }
     if contains(lower, "onions") and contains(lower, "cry") {
         return proposal("Cutting onions releases irritating sulfur compounds that react with moisture in your eyes.", "facts", 200, memory)
@@ -733,10 +739,7 @@ function run_after_hooks(text: string, winning: Proposal, previous: Memory) -> M
 }
 
 function topic_specialist_fit(candidate: Proposal, topic: string) -> bool {
-    if same(topic, "kettle") {
-        return same(candidate.module, "kettle") or same(candidate.module, "kettle_followup")
-    }
-    return false
+    return not same(candidate.reply, "") and not same(candidate.topic, "") and same(candidate.topic, topic)
 }
 
 function prefer_with_explicit_topic(current: Proposal, challenger: Proposal, memory: Memory, topic: string, explicitTopic: bool) -> Proposal {
@@ -1002,6 +1005,22 @@ function read_line() -> InputLine {
 }
 
 function run_self_tests() -> i32 {
+    let attributedKettle: Proposal = attributed_proposal("Descale", "answers", 300, fresh_memory(), "kettle", "kettle-descale")
+    let unrelatedAnswer: Proposal = attributed_proposal("Parking", "answers", 600, fresh_memory(), "parking", "parking-rules")
+    let genericAnswer: Proposal = proposal("General", "answers", 600, fresh_memory())
+    if not topic_specialist_fit(attributedKettle, "kettle") or topic_specialist_fit(unrelatedAnswer, "kettle") or topic_specialist_fit(genericAnswer, "kettle") {
+        println("FAIL: specialist fit must use proposal topic metadata rather than shared module identity")
+        return 173
+    }
+    let topicRecall: Proposal = proposal("Recall", "recall", 7000, fresh_memory())
+    if not same(prefer_with_explicit_topic(topicRecall, attributedKettle, fresh_memory(), "kettle", true).entry, "kettle-descale") or not same(prefer_with_explicit_topic(topicRecall, attributedKettle, fresh_memory(), "kettle", false).module, "recall") {
+        println("FAIL: attributed specialist must override recall only on explicit topic")
+        return 174
+    }
+    if not same(prefer_with_explicit_topic(topicRecall, unrelatedAnswer, fresh_memory(), "kettle", true).module, "recall") {
+        println("FAIL: unrelated knowledge entry must not override recall")
+        return 175
+    }
     let oneTurnEmpty: Memory = fresh_memory()
     if not same(recall_reply("what did i say one turn ago", oneTurnEmpty).reply,
                 "I don't have a message from one turn ago.") {
