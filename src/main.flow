@@ -739,15 +739,24 @@ function topic_specialist_fit(candidate: Proposal, topic: string) -> bool {
     return false
 }
 
-function prefer_with_topic(current: Proposal, challenger: Proposal, memory: Memory, topic: string) -> Proposal {
+function prefer_with_explicit_topic(current: Proposal, challenger: Proposal, memory: Memory, topic: string, explicitTopic: bool) -> Proposal {
     if current.priority >= 9000 or challenger.priority >= 9000 {
-        return prefer(current, challenger, memory)
-    }
-    if current.priority >= 7000 or challenger.priority >= 7000 {
         return prefer(current, challenger, memory)
     }
     let currentFits: bool = topic_specialist_fit(current, topic)
     let challengerFits: bool = topic_specialist_fit(challenger, topic)
+    if current.priority >= 7000 or challenger.priority >= 7000 {
+        if not explicitTopic {
+            return prefer(current, challenger, memory)
+        }
+        if challengerFits and not currentFits and not same(challenger.reply, "") {
+            return challenger
+        }
+        if currentFits and not challengerFits and not same(current.reply, "") {
+            return current
+        }
+        return prefer(current, challenger, memory)
+    }
     if challengerFits and not currentFits and not same(challenger.reply, "") {
         return challenger
     }
@@ -757,12 +766,20 @@ function prefer_with_topic(current: Proposal, challenger: Proposal, memory: Memo
     return prefer(current, challenger, memory)
 }
 
-function choose(candidates: CandidateSet, previous: Memory, observed: Memory) -> Proposal {
+function prefer_with_topic(current: Proposal, challenger: Proposal, memory: Memory, topic: string) -> Proposal {
+    return prefer_with_explicit_topic(current, challenger, memory, topic, false)
+}
+
+function choose_with_explicit_topic(candidates: CandidateSet, previous: Memory, observed: Memory, explicitTopic: bool) -> Proposal {
     let mut winner: Proposal = proposal("Hello!", "fallback", -1000, observed)
     for i in 0 to candidates.count {
-        winner = prefer_with_topic(winner, candidates.values[i], previous, observed.topic)
+        winner = prefer_with_explicit_topic(winner, candidates.values[i], previous, observed.topic, explicitTopic)
     }
     return winner
+}
+
+function choose(candidates: CandidateSet, previous: Memory, observed: Memory) -> Proposal {
+    return choose_with_explicit_topic(candidates, previous, observed, false)
 }
 
 function avoid_repeated_answer(candidates: CandidateSet, previous: Memory, winner: Proposal, topic: string) -> Proposal {
@@ -784,14 +801,16 @@ function avoid_repeated_answer(candidates: CandidateSet, previous: Memory, winne
 }
 
 function choose_for_text(candidates: CandidateSet, previous: Memory, observed: Memory, text: string) -> Proposal {
+    let reading: LineReading = understand_line(text, previous.topic)
+    let explicitTopic: bool = not reading.followup and not same(reading.topic, "") and same(reading.topic, observed.topic)
     if previous.turns > 0 and same(lower_ascii(trimmed(text)), lower_ascii(trimmed(previous.lastUser))) {
         let mut repeatContext: Memory = previous
         repeatContext.lastReply = ""
         repeatContext.recent = null
         repeatContext.recentCount = 0
-        return choose(candidates, repeatContext, observed)
+        return choose_with_explicit_topic(candidates, repeatContext, observed, explicitTopic)
     }
-    let winner: Proposal = choose(candidates, previous, observed)
+    let winner: Proposal = choose_with_explicit_topic(candidates, previous, observed, explicitTopic)
     return avoid_repeated_answer(candidates, previous, winner, observed.topic)
 }
 
@@ -1353,6 +1372,24 @@ function run_self_tests() -> i32 {
         return 125
     }
     release_history(threeTurnMemory)
+    let topicCollisionMemory: Memory = fresh_memory()
+    let topicRecall: Proposal = proposal("Recall answer", "recall", 7000, topicCollisionMemory)
+    let topicSpecialist: Proposal = proposal("Kettle answer", "kettle", 300, topicCollisionMemory)
+    if not same(prefer_with_explicit_topic(topicRecall, topicSpecialist, topicCollisionMemory, "kettle", true).module, "kettle") or
+       not same(prefer_with_explicit_topic(topicSpecialist, topicRecall, topicCollisionMemory, "kettle", true).module, "kettle") {
+        println("FAIL: explicit current-line specialist must beat general recall in either order")
+        return 170
+    }
+    if not same(prefer_with_explicit_topic(topicRecall, topicSpecialist, topicCollisionMemory, "kettle", false).module, "recall") {
+        println("FAIL: inherited specialist must not displace recall")
+        return 171
+    }
+    let topicEmergency: Proposal = proposal("Emergency answer", "safety", 9000, topicCollisionMemory)
+    if not same(prefer_with_explicit_topic(topicEmergency, topicSpecialist, topicCollisionMemory, "kettle", true).module, "safety") or
+       not same(prefer_with_explicit_topic(topicSpecialist, topicEmergency, topicCollisionMemory, "kettle", true).module, "safety") {
+        println("FAIL: explicit specialist must not displace safety")
+        return 172
+    }
     let safetyKnowledgeMemory: Memory = fresh_memory()
     let hotSocket: Proposal = knowledge_reply("is a hot plug socket safe?", "is a hot plug socket safe?", safetyKnowledgeMemory)
     if hotSocket.priority < 9000 or not same(hotSocket.module, "answers") {
