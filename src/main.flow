@@ -691,13 +691,16 @@ function after_transcript(text: string, winning: Proposal, memory: Memory) -> Me
 }
 
 function run_after_hooks(text: string, winning: Proposal, previous: Memory) -> Memory {
-    let mut recorded: Memory = after_transcript(text, winning, winning.memory)
+    let corrected: Memory = after_correction(text, winning.memory)
+    let mut recorded: Memory = after_transcript(text, winning, corrected)
     if recorded.recentCount != previous.recentCount + 1 {
-        return recorded
+        if corrected.facts != winning.memory.facts {
+            free(corrected.facts as ptr<void>)
+        }
+        return winning.memory
     }
-    let mut corrected: Memory = after_correction(text, recorded)
-    corrected.turns = previous.turns + 1
-    return corrected
+    recorded.turns = previous.turns + 1
+    return recorded
 }
 
 function topic_specialist_fit(candidate: Proposal, topic: string) -> bool {
@@ -951,6 +954,36 @@ function read_line() -> InputLine {
 }
 
 function run_self_tests() -> i32 {
+    let mut hookSeed: Memory = fresh_memory()
+    hookSeed = append_turn(hookSeed, TurnRecord { user: "previous", bot: "earlier", module: "greeting" })
+    hookSeed.turns = 1
+    let hookCandidate: Memory = isolate_candidate_memory(hookSeed)
+    let hookProposal: Proposal = proposal("Understood.", "greeting", 500, hookCandidate)
+    let hookCorrected: Memory = after_correction("call me Alice", hookCandidate)
+    if hookCorrected.recentCount != 1 or not same(hookCorrected.recent[0].user, "previous") or
+       not same(facts_latest(hookCorrected.facts, "self", "name"), "Alice") {
+        println("FAIL: after-hook must observe prior transcript without current turn")
+        release_history(hookCorrected)
+        release_history(hookSeed)
+        return 164
+    }
+    release_history(hookCorrected)
+    let secondHookCandidate: Memory = isolate_candidate_memory(hookSeed)
+    let secondHookProposal: Proposal = proposal("Understood.", "greeting", 500, secondHookCandidate)
+    let hookCommitted: Memory = run_after_hooks("call me Alice", secondHookProposal, hookSeed)
+    if hookCommitted.recentCount != 2 or hookCommitted.turns != 2 or
+       not same(hookCommitted.recent[0].user, "previous") or
+       not same(hookCommitted.recent[1].user, "call me Alice") or
+       not same(hookCommitted.recent[1].bot, "Understood.") or
+       not same(hookCommitted.recent[1].module, "greeting") or
+       not same(hookCommitted.name, "Alice") {
+        println("FAIL: after-hook correction and transcript append must both commit")
+        release_history(hookCommitted)
+        release_history(hookSeed)
+        return 165
+    }
+    release_history(hookCommitted)
+    release_history(hookSeed)
     let mut snapshotSeed: Memory = fresh_memory()
     snapshotSeed.name = "Alice"
     snapshotSeed.facts = facts_note(null, "self", "name", "Alice", "initial", 1)
