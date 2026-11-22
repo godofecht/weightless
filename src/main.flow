@@ -691,7 +691,6 @@ function after_transcript(text: string, winning: Proposal, memory: Memory) -> Me
 }
 
 function run_after_hooks(text: string, winning: Proposal, previous: Memory) -> Memory {
-    // PyBot executes module after-hooks before the runtime appends the current turn.
     let corrected: Memory = after_correction(text, winning.memory)
     let mut recorded: Memory = after_transcript(text, winning, corrected)
     if recorded.recentCount != previous.recentCount + 1 {
