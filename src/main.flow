@@ -1012,12 +1012,12 @@ function run_self_tests() -> i32 {
         println("FAIL: specialist fit must use proposal topic metadata rather than shared module identity")
         return 173
     }
-    let topicRecall: Proposal = proposal("Recall", "recall", 7000, fresh_memory())
-    if not same(prefer_with_explicit_topic(topicRecall, attributedKettle, fresh_memory(), "kettle", true).entry, "kettle-descale") or not same(prefer_with_explicit_topic(topicRecall, attributedKettle, fresh_memory(), "kettle", false).module, "recall") {
+    let metadataTopicRecall: Proposal = proposal("Recall", "recall", 7000, fresh_memory())
+    if not same(prefer_with_explicit_topic(metadataTopicRecall, attributedKettle, fresh_memory(), "kettle", true).entry, "kettle-descale") or not same(prefer_with_explicit_topic(metadataTopicRecall, attributedKettle, fresh_memory(), "kettle", false).module, "recall") {
         println("FAIL: attributed specialist must override recall only on explicit topic")
         return 174
     }
-    if not same(prefer_with_explicit_topic(topicRecall, unrelatedAnswer, fresh_memory(), "kettle", true).module, "recall") {
+    if not same(prefer_with_explicit_topic(metadataTopicRecall, unrelatedAnswer, fresh_memory(), "kettle", true).module, "recall") {
         println("FAIL: unrelated knowledge entry must not override recall")
         return 175
     }
