@@ -694,7 +694,10 @@ function run_after_hooks(text: string, winning: Proposal, previous: Memory) -> M
     let corrected: Memory = after_correction(text, winning.memory)
     let mut recorded: Memory = after_transcript(text, winning, corrected)
     if recorded.recentCount != previous.recentCount + 1 {
-        return recorded
+        if corrected.facts != winning.memory.facts {
+            free(corrected.facts as ptr<void>)
+        }
+        return winning.memory
     }
     recorded.turns = previous.turns + 1
     return recorded
