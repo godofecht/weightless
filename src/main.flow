@@ -1515,7 +1515,7 @@ function run_self_tests() -> i32 {
     candidate_set_release(&topicRepeatSet)
     let mut topicAlternativeSet: CandidateSet = candidate_set_new()
     let _topicAlternativeA: bool = candidate_set_add(&topicAlternativeSet, attributed_proposal("Kettle answer", "kettle", 300, topicRepeatMemory, "kettle", "kettle-test"))
-    let _topicAlternativeB: bool = candidate_set_add(&topicAlternativeSet, proposal("Fresh kettle answer", "kettle_followup", 250, topicRepeatMemory))
+    let _topicAlternativeB: bool = candidate_set_add(&topicAlternativeSet, attributed_proposal("Fresh kettle answer", "kettle_followup", 250, topicRepeatMemory, "kettle", "kettle-followup-test"))
     let topicAlternativeWinner: Proposal = choose_for_text(topicAlternativeSet, topicRepeatMemory, topicRepeatMemory, "how do I descale my kettle")
     if not same(topicAlternativeWinner.module, "kettle_followup") {
         println("FAIL: fresh topical answer must replace a repeated topical answer")
