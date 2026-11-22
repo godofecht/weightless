@@ -1393,7 +1393,7 @@ function run_self_tests() -> i32 {
     release_history(threeTurnMemory)
     let topicCollisionMemory: Memory = fresh_memory()
     let topicRecall: Proposal = proposal("Recall answer", "recall", 7000, topicCollisionMemory)
-    let topicSpecialist: Proposal = proposal("Kettle answer", "kettle", 300, topicCollisionMemory)
+    let topicSpecialist: Proposal = attributed_proposal("Kettle answer", "kettle", 300, topicCollisionMemory, "kettle", "kettle-test")
     if not same(prefer_with_explicit_topic(topicRecall, topicSpecialist, topicCollisionMemory, "kettle", true).module, "kettle") or
        not same(prefer_with_explicit_topic(topicSpecialist, topicRecall, topicCollisionMemory, "kettle", true).module, "kettle") {
         println("FAIL: explicit current-line specialist must beat general recall in either order")
@@ -1493,7 +1493,7 @@ function run_self_tests() -> i32 {
     repeatedSpecialistMemory.topic = "kettle"
     let mut repeatedSpecialistSet: CandidateSet = candidate_set_new()
     let _repeatedSpecialistGeneral: bool = candidate_set_add(&repeatedSpecialistSet, proposal("General answer", "general", 800, repeatedSpecialistMemory))
-    let _repeatedSpecialistSpecific: bool = candidate_set_add(&repeatedSpecialistSet, proposal("Kettle answer", "kettle", 300, repeatedSpecialistMemory))
+    let _repeatedSpecialistSpecific: bool = candidate_set_add(&repeatedSpecialistSet, attributed_proposal("Kettle answer", "kettle", 300, repeatedSpecialistMemory, "kettle", "kettle-test"))
     let repeatedSpecialistWinner: Proposal = choose_for_text(repeatedSpecialistSet, repeatedSpecialistMemory, repeatedSpecialistMemory, "how do I descale my kettle")
     if not same(repeatedSpecialistWinner.module, "kettle") {
         println("FAIL: identical question must retain specialist routing")
@@ -1505,7 +1505,7 @@ function run_self_tests() -> i32 {
     topicRepeatMemory.lastReply = "Kettle answer"
     topicRepeatMemory.topic = "kettle"
     let mut topicRepeatSet: CandidateSet = candidate_set_new()
-    let _topicRepeatA: bool = candidate_set_add(&topicRepeatSet, proposal("Kettle answer", "kettle", 300, topicRepeatMemory))
+    let _topicRepeatA: bool = candidate_set_add(&topicRepeatSet, attributed_proposal("Kettle answer", "kettle", 300, topicRepeatMemory, "kettle", "kettle-test"))
     let _topicRepeatB: bool = candidate_set_add(&topicRepeatSet, proposal("Unrelated fresh answer", "general", 800, topicRepeatMemory))
     let topicRepeatWinner: Proposal = choose_for_text(topicRepeatSet, topicRepeatMemory, topicRepeatMemory, "how do I descale my kettle")
     if not same(topicRepeatWinner.module, "kettle") {
@@ -1514,7 +1514,7 @@ function run_self_tests() -> i32 {
     }
     candidate_set_release(&topicRepeatSet)
     let mut topicAlternativeSet: CandidateSet = candidate_set_new()
-    let _topicAlternativeA: bool = candidate_set_add(&topicAlternativeSet, proposal("Kettle answer", "kettle", 300, topicRepeatMemory))
+    let _topicAlternativeA: bool = candidate_set_add(&topicAlternativeSet, attributed_proposal("Kettle answer", "kettle", 300, topicRepeatMemory, "kettle", "kettle-test"))
     let _topicAlternativeB: bool = candidate_set_add(&topicAlternativeSet, proposal("Fresh kettle answer", "kettle_followup", 250, topicRepeatMemory))
     let topicAlternativeWinner: Proposal = choose_for_text(topicAlternativeSet, topicRepeatMemory, topicRepeatMemory, "how do I descale my kettle")
     if not same(topicAlternativeWinner.module, "kettle_followup") {
@@ -1557,7 +1557,7 @@ function run_self_tests() -> i32 {
 
     let arbiterMemory: Memory = fresh_memory()
     let generalist: Proposal = proposal("General answer", "general", 800, arbiterMemory)
-    let specialist: Proposal = proposal("Kettle answer", "kettle", 300, arbiterMemory)
+    let specialist: Proposal = attributed_proposal("Kettle answer", "kettle", 300, arbiterMemory, "kettle", "kettle-test")
     let emergency: Proposal = proposal("Emergency answer", "safety", 9000, arbiterMemory)
     if not same(prefer_with_topic(generalist, specialist, arbiterMemory, "kettle").module, "kettle") {
         println("FAIL: matching topic specialist must beat unrelated generalist")
