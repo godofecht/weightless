@@ -36,7 +36,9 @@ struct Proposal {
     reply: string,
     module: string,
     priority: i32,
-    memory: Memory
+    memory: Memory,
+    topic: string,
+    entry: string
 }
 
 struct InputLine {
@@ -344,7 +346,11 @@ function observe(text: string, memory: Memory) -> Memory {
 }
 
 function proposal(reply: string, module: string, priority: i32, memory: Memory) -> Proposal {
-    return Proposal { reply: reply, module: module, priority: priority, memory: memory }
+    return Proposal { reply: reply, module: module, priority: priority, memory: memory, topic: "", entry: "" }
+}
+
+function attributed_proposal(reply: string, module: string, priority: i32, memory: Memory, topic: string, entry: string) -> Proposal {
+    return Proposal { reply: reply, module: module, priority: priority, memory: memory, topic: topic, entry: entry }
 }
 
 function candidate_set_new() -> CandidateSet {
@@ -478,16 +484,16 @@ function knowledge_reply(text: string, lower: string, memory: Memory) -> Proposa
     if hit.score > 0 {
         let safetyPriority: i32 = knowledge_safety_priority(hit)
         if safetyPriority >= 9000 {
-            return proposal(hit.reply, hit.module, safetyPriority, memory)
+            return attributed_proposal(hit.reply, hit.module, safetyPriority, memory, "", hit.entry)
         }
-        return proposal(hit.reply, hit.module, 300 + hit.score, memory)
+        return attributed_proposal(hit.reply, hit.module, 300 + hit.score, memory, "", hit.entry)
     }
     let reading: LineReading = understand_line(text, memory.topic)
     if same(reading.topic, "kettle") and contains(lower, "how long") {
-        return proposal("Half an hour.", "kettle_followup", 300, memory)
+        return attributed_proposal("Half an hour.", "kettle_followup", 300, memory, "kettle", "kettle-duration")
     }
     if same(reading.topic, "kettle") {
-        return proposal("Half fill the kettle with equal parts water and white vinegar, boil it, leave it for half an hour, then rinse thoroughly and boil fresh water twice.", "kettle", 300, memory)
+        return attributed_proposal("Half fill the kettle with equal parts water and white vinegar, boil it, leave it for half an hour, then rinse thoroughly and boil fresh water twice.", "kettle", 300, memory, "kettle", "kettle-descale")
     }
     if contains(lower, "onions") and contains(lower, "cry") {
         return proposal("Cutting onions releases irritating sulfur compounds that react with moisture in your eyes.", "facts", 200, memory)
@@ -733,10 +739,7 @@ function run_after_hooks(text: string, winning: Proposal, previous: Memory) -> M
 }
 
 function topic_specialist_fit(candidate: Proposal, topic: string) -> bool {
-    if same(topic, "kettle") {
-        return same(candidate.module, "kettle") or same(candidate.module, "kettle_followup")
-    }
-    return false
+    return not same(candidate.reply, "") and not same(candidate.topic, "") and same(candidate.topic, topic)
 }
 
 function prefer_with_explicit_topic(current: Proposal, challenger: Proposal, memory: Memory, topic: string, explicitTopic: bool) -> Proposal {
@@ -1002,6 +1005,22 @@ function read_line() -> InputLine {
 }
 
 function run_self_tests() -> i32 {
+    let attributedKettle: Proposal = attributed_proposal("Descale", "answers", 300, fresh_memory(), "kettle", "kettle-descale")
+    let unrelatedAnswer: Proposal = attributed_proposal("Parking", "answers", 600, fresh_memory(), "parking", "parking-rules")
+    let genericAnswer: Proposal = proposal("General", "answers", 600, fresh_memory())
+    if not topic_specialist_fit(attributedKettle, "kettle") or topic_specialist_fit(unrelatedAnswer, "kettle") or topic_specialist_fit(genericAnswer, "kettle") {
+        println("FAIL: specialist fit must use proposal topic metadata rather than shared module identity")
+        return 173
+    }
+    let metadataTopicRecall: Proposal = proposal("Recall", "recall", 7000, fresh_memory())
+    if not same(prefer_with_explicit_topic(metadataTopicRecall, attributedKettle, fresh_memory(), "kettle", true).entry, "kettle-descale") or not same(prefer_with_explicit_topic(metadataTopicRecall, attributedKettle, fresh_memory(), "kettle", false).module, "recall") {
+        println("FAIL: attributed specialist must override recall only on explicit topic")
+        return 174
+    }
+    if not same(prefer_with_explicit_topic(metadataTopicRecall, unrelatedAnswer, fresh_memory(), "kettle", true).module, "recall") {
+        println("FAIL: unrelated knowledge entry must not override recall")
+        return 175
+    }
     let oneTurnEmpty: Memory = fresh_memory()
     if not same(recall_reply("what did i say one turn ago", oneTurnEmpty).reply,
                 "I don't have a message from one turn ago.") {
@@ -1374,7 +1393,7 @@ function run_self_tests() -> i32 {
     release_history(threeTurnMemory)
     let topicCollisionMemory: Memory = fresh_memory()
     let topicRecall: Proposal = proposal("Recall answer", "recall", 7000, topicCollisionMemory)
-    let topicSpecialist: Proposal = proposal("Kettle answer", "kettle", 300, topicCollisionMemory)
+    let topicSpecialist: Proposal = attributed_proposal("Kettle answer", "kettle", 300, topicCollisionMemory, "kettle", "kettle-test")
     if not same(prefer_with_explicit_topic(topicRecall, topicSpecialist, topicCollisionMemory, "kettle", true).module, "kettle") or
        not same(prefer_with_explicit_topic(topicSpecialist, topicRecall, topicCollisionMemory, "kettle", true).module, "kettle") {
         println("FAIL: explicit current-line specialist must beat general recall in either order")
@@ -1474,7 +1493,7 @@ function run_self_tests() -> i32 {
     repeatedSpecialistMemory.topic = "kettle"
     let mut repeatedSpecialistSet: CandidateSet = candidate_set_new()
     let _repeatedSpecialistGeneral: bool = candidate_set_add(&repeatedSpecialistSet, proposal("General answer", "general", 800, repeatedSpecialistMemory))
-    let _repeatedSpecialistSpecific: bool = candidate_set_add(&repeatedSpecialistSet, proposal("Kettle answer", "kettle", 300, repeatedSpecialistMemory))
+    let _repeatedSpecialistSpecific: bool = candidate_set_add(&repeatedSpecialistSet, attributed_proposal("Kettle answer", "kettle", 300, repeatedSpecialistMemory, "kettle", "kettle-test"))
     let repeatedSpecialistWinner: Proposal = choose_for_text(repeatedSpecialistSet, repeatedSpecialistMemory, repeatedSpecialistMemory, "how do I descale my kettle")
     if not same(repeatedSpecialistWinner.module, "kettle") {
         println("FAIL: identical question must retain specialist routing")
@@ -1486,7 +1505,7 @@ function run_self_tests() -> i32 {
     topicRepeatMemory.lastReply = "Kettle answer"
     topicRepeatMemory.topic = "kettle"
     let mut topicRepeatSet: CandidateSet = candidate_set_new()
-    let _topicRepeatA: bool = candidate_set_add(&topicRepeatSet, proposal("Kettle answer", "kettle", 300, topicRepeatMemory))
+    let _topicRepeatA: bool = candidate_set_add(&topicRepeatSet, attributed_proposal("Kettle answer", "kettle", 300, topicRepeatMemory, "kettle", "kettle-test"))
     let _topicRepeatB: bool = candidate_set_add(&topicRepeatSet, proposal("Unrelated fresh answer", "general", 800, topicRepeatMemory))
     let topicRepeatWinner: Proposal = choose_for_text(topicRepeatSet, topicRepeatMemory, topicRepeatMemory, "how do I descale my kettle")
     if not same(topicRepeatWinner.module, "kettle") {
@@ -1495,8 +1514,8 @@ function run_self_tests() -> i32 {
     }
     candidate_set_release(&topicRepeatSet)
     let mut topicAlternativeSet: CandidateSet = candidate_set_new()
-    let _topicAlternativeA: bool = candidate_set_add(&topicAlternativeSet, proposal("Kettle answer", "kettle", 300, topicRepeatMemory))
-    let _topicAlternativeB: bool = candidate_set_add(&topicAlternativeSet, proposal("Fresh kettle answer", "kettle_followup", 250, topicRepeatMemory))
+    let _topicAlternativeA: bool = candidate_set_add(&topicAlternativeSet, attributed_proposal("Kettle answer", "kettle", 300, topicRepeatMemory, "kettle", "kettle-test"))
+    let _topicAlternativeB: bool = candidate_set_add(&topicAlternativeSet, attributed_proposal("Fresh kettle answer", "kettle_followup", 250, topicRepeatMemory, "kettle", "kettle-followup-test"))
     let topicAlternativeWinner: Proposal = choose_for_text(topicAlternativeSet, topicRepeatMemory, topicRepeatMemory, "how do I descale my kettle")
     if not same(topicAlternativeWinner.module, "kettle_followup") {
         println("FAIL: fresh topical answer must replace a repeated topical answer")
@@ -1538,7 +1557,7 @@ function run_self_tests() -> i32 {
 
     let arbiterMemory: Memory = fresh_memory()
     let generalist: Proposal = proposal("General answer", "general", 800, arbiterMemory)
-    let specialist: Proposal = proposal("Kettle answer", "kettle", 300, arbiterMemory)
+    let specialist: Proposal = attributed_proposal("Kettle answer", "kettle", 300, arbiterMemory, "kettle", "kettle-test")
     let emergency: Proposal = proposal("Emergency answer", "safety", 9000, arbiterMemory)
     if not same(prefer_with_topic(generalist, specialist, arbiterMemory, "kettle").module, "kettle") {
         println("FAIL: matching topic specialist must beat unrelated generalist")
