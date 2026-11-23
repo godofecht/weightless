@@ -24,12 +24,15 @@ export struct FactInsertResult {
     invalid: bool
 }
 
-export function facts_try_note(
+export function facts_try_note_with_allocation(
     head: ptr<FactNode>, owner: string, key: string,
-    value: string, source: string, turn: i32
+    value: string, source: string, turn: i32, allowAllocation: bool
 ) -> FactInsertResult {
     if strcmp(owner, "") == 0 or strcmp(key, "") == 0 or strcmp(value, "") == 0 {
         return FactInsertResult { head: head, inserted: false, invalid: true }
+    }
+    if not allowAllocation {
+        return FactInsertResult { head: head, inserted: false, invalid: false }
     }
     let node: ptr<FactNode> = malloc(sizeof<FactNode>()) as ptr<FactNode>
     if node == null {
@@ -44,6 +47,13 @@ export function facts_try_note(
         previous: head
     }
     return FactInsertResult { head: node, inserted: true, invalid: false }
+}
+
+export function facts_try_note(
+    head: ptr<FactNode>, owner: string, key: string,
+    value: string, source: string, turn: i32
+) -> FactInsertResult {
+    return facts_try_note_with_allocation(head, owner, key, value, source, turn, true)
 }
 
 export function facts_note(
