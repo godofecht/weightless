@@ -1213,6 +1213,29 @@ function run_self_tests() -> i32 {
         println("FAIL: failed transcript append must not commit name correction or fact history")
         return 156
     }
+    let mut rollbackSeed: Memory = fresh_memory()
+    rollbackSeed.name = "Alice"
+    rollbackSeed.topic = "kettle"
+    rollbackSeed.facts = facts_note(null, "self", "name", "Alice", "first", 1)
+    rollbackSeed.recentCount = 1073741824
+    rollbackSeed.recentCapacity = 1073741824
+    let rollbackFacts: ptr<FactNode> = facts_clone(rollbackSeed.facts)
+    let mut rollbackCandidate: Memory = rollbackSeed
+    rollbackCandidate.facts = rollbackFacts
+    let rollbackWinner: Proposal = proposal("Hello", "greeting", 100, rollbackCandidate)
+    let rolledBack: Memory = run_after_hooks("call me Bob", rollbackWinner, rollbackSeed)
+    if not same(rolledBack.name, "Alice") or
+       not same(rolledBack.topic, "kettle") or
+       not same(facts_latest(rolledBack.facts, "self", "name"), "Alice") or
+       facts_count(rolledBack.facts) != 1 or
+       rolledBack.recentCount != rollbackSeed.recentCount or
+       rolledBack.turns != rollbackSeed.turns or
+       not same(facts_latest(rollbackSeed.facts, "self", "name"), "Alice") {
+        println("FAIL: correction after-hook rollback must preserve prior attributed facts and topic")
+        return 180
+    }
+    facts_release(rollbackFacts)
+    facts_release(rollbackSeed.facts)
     let mut factIsolation: Memory = fresh_memory()
     factIsolation.facts = facts_note(null, "self", "name", "Alice", "initial", 1)
     factIsolation.facts = facts_note(factIsolation.facts, "self", "city", "Cambridge", "initial", 2)
