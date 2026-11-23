@@ -861,7 +861,10 @@ function transcript_equal(a: Memory, b: Memory) -> bool {
 }
 
 function responder_snapshot_ready(observed: Memory, snapshot: Memory) -> bool {
-    return (snapshot.recentCount == observed.recentCount and
+    return same(snapshot.name, observed.name) and same(snapshot.topic, observed.topic) and
+        same(snapshot.lastUser, observed.lastUser) and same(snapshot.lastReply, observed.lastReply) and
+        snapshot.turns == observed.turns and
+        (snapshot.recentCount == observed.recentCount and
         (observed.recentCount == 0 or (snapshot.recent != null and snapshot.recent != observed.recent and
             snapshot.recentCapacity >= snapshot.recentCount and transcript_equal(observed, snapshot)))) and
         (observed.facts == null or (snapshot.facts != null and snapshot.facts != observed.facts and
@@ -1688,6 +1691,24 @@ function run_self_tests() -> i32 {
 
     let mut faultMemory: Memory = fresh_memory()
     let _faultSeed: Proposal = turn("hello", &faultMemory)
+    let mut alteredScalarSnapshot: Memory = isolate_candidate_memory(faultMemory)
+    if not responder_snapshot_ready(faultMemory, alteredScalarSnapshot) {
+        println("FAIL: intact scalar snapshot must remain valid")
+        failures = failures + 1
+    }
+    alteredScalarSnapshot.topic = "corrupted-topic"
+    if responder_snapshot_ready(faultMemory, alteredScalarSnapshot) {
+        println("FAIL: altered topic scalar must invalidate responder snapshot")
+        failures = failures + 1
+    }
+    alteredScalarSnapshot.topic = faultMemory.topic
+    alteredScalarSnapshot.turns = faultMemory.turns + 1
+    if responder_snapshot_ready(faultMemory, alteredScalarSnapshot) {
+        println("FAIL: altered turn counter must invalidate responder snapshot")
+        failures = failures + 1
+    }
+    release_candidate_memory(alteredScalarSnapshot, faultMemory)
+
     let mut failedSnapshot: Memory = faultMemory
     if responder_snapshot_ready(faultMemory, failedSnapshot) {
         println("FAIL: shared responder transcript must fail closed")
