@@ -845,7 +845,9 @@ function run_observers(text: string, previous: Memory, reading: LineReading) -> 
 }
 
 function responder_snapshot_ready(observed: Memory, snapshot: Memory) -> bool {
-    return (observed.recentCount == 0 or (snapshot.recent != null and snapshot.recent != observed.recent)) and
+    return (snapshot.recentCount == observed.recentCount and
+        (observed.recentCount == 0 or (snapshot.recent != null and snapshot.recent != observed.recent and
+            snapshot.recentCapacity >= snapshot.recentCount))) and
         (observed.facts == null or (snapshot.facts != null and snapshot.facts != observed.facts and
             facts_count(snapshot.facts) == facts_count(observed.facts)))
 }
@@ -1668,6 +1670,13 @@ function run_self_tests() -> i32 {
     }
     facts_release(incompleteSnapshot.facts)
     facts_release(partialFacts.facts)
+    let mut incompleteTranscript: Memory = isolate_winning_transcript(faultMemory)
+    incompleteTranscript.recentCount = incompleteTranscript.recentCount - 1
+    if responder_snapshot_ready(faultMemory, incompleteTranscript) {
+        println("FAIL: truncated responder transcript snapshot must fail closed")
+        return 182
+    }
+    free(incompleteTranscript.recent as ptr<void>)
     let isolatedSnapshot: Memory = isolate_winning_transcript(faultMemory)
     if not responder_snapshot_ready(faultMemory, isolatedSnapshot) {
         println("FAIL: independent responder transcript must be accepted")
