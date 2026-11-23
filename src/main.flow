@@ -1,7 +1,7 @@
 import std.bytebuf { ByteBuf, bb_new, bb_putc, bb_str, bb_free }
 import std.process { proc_argc, proc_argv }
 import .knowledge { KnowledgeHit, knowledge_lookup, knowledge_corpus_count, knowledge_corpus_release }
-import .facts { FactNode, facts_note, facts_latest, facts_latest_turn, facts_count, facts_release, facts_clone, facts_equal }
+import .facts { FactNode, FactInsertResult, facts_try_note, facts_note, facts_latest, facts_latest_turn, facts_count, facts_release, facts_clone, facts_equal }
 import .understanding { LineReading, understand_line }
 
 extern {
@@ -1039,6 +1039,29 @@ function read_line() -> InputLine {
 }
 
 function run_self_tests() -> i32 {
+    let invalidFact: FactInsertResult = facts_try_note(null, "", "name", "Alice", "test", 1)
+    if invalidFact.inserted or not invalidFact.invalid or invalidFact.head != null {
+        println("FAIL: invalid fact insertion must report invalid without allocating")
+        return 190
+    }
+    let insertedFact: FactInsertResult = facts_try_note(null, "self", "name", "Alice", "test", 1)
+    if not insertedFact.inserted or insertedFact.invalid or insertedFact.head == null {
+        println("FAIL: valid fact insertion must return explicit success")
+        return 191
+    }
+    let secondFact: FactInsertResult = facts_try_note(insertedFact.head, "self", "city", "Cambridge", "test", 2)
+    if not secondFact.inserted or secondFact.invalid or secondFact.head == null or
+       secondFact.head[0].previous != insertedFact.head or
+       facts_count(secondFact.head) != 2 {
+        println("FAIL: explicit insertion must preserve immutable fact ancestry")
+        if secondFact.inserted {
+            facts_release(secondFact.head)
+        } else {
+            facts_release(insertedFact.head)
+        }
+        return 192
+    }
+    facts_release(secondFact.head)
     let parkingHit: KnowledgeHit = knowledge_lookup("is parking on the pavement legal?")
     let screenHit: KnowledgeHit = knowledge_lookup("should i get a laptop stand for my low screen?")
     let unrelatedHit: KnowledgeHit = knowledge_lookup("why is my plug hot?")

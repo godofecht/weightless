@@ -18,6 +18,34 @@ export struct FactNode {
     previous: ptr<FactNode>
 }
 
+export struct FactInsertResult {
+    head: ptr<FactNode>,
+    inserted: bool,
+    invalid: bool
+}
+
+export function facts_try_note(
+    head: ptr<FactNode>, owner: string, key: string,
+    value: string, source: string, turn: i32
+) -> FactInsertResult {
+    if strcmp(owner, "") == 0 or strcmp(key, "") == 0 or strcmp(value, "") == 0 {
+        return FactInsertResult { head: head, inserted: false, invalid: true }
+    }
+    let node: ptr<FactNode> = malloc(sizeof<FactNode>()) as ptr<FactNode>
+    if node == null {
+        return FactInsertResult { head: head, inserted: false, invalid: false }
+    }
+    node[0] = FactNode {
+        owner: owner,
+        key: key,
+        value: value,
+        source: source,
+        turn: turn,
+        previous: head
+    }
+    return FactInsertResult { head: node, inserted: true, invalid: false }
+}
+
 export function facts_note(
     head: ptr<FactNode>, owner: string, key: string,
     value: string, source: string, turn: i32
