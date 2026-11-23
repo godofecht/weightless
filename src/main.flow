@@ -221,7 +221,16 @@ function commit_name_fact(memory: Memory, name: string, recordedFacts: ptr<FactN
     return next
 }
 
-function observe(text: string, memory: Memory) -> Memory {
+function release_observer_additions(head: ptr<FactNode>, original: ptr<FactNode>) {
+    let mut current: ptr<FactNode> = head
+    while current != null and current != original {
+        let previous: ptr<FactNode> = current[0].previous
+        free(current as ptr<void>)
+        current = previous
+    }
+}
+
+function observe_with_allocation(text: string, memory: Memory, allowAllocation: bool) -> Memory {
     let mut next: Memory = memory
     let lower: string = lower_ascii(text)
     let mut start: i32 = index_of(lower, "my name is ")
@@ -258,8 +267,12 @@ function observe(text: string, memory: Memory) -> Memory {
         if not same(name, "") {
             let initial: u8 = (name as ptr<u8>)[0]
             if explicitName or (initial >= 65 and initial <= 90) {
-                let recordedFacts: ptr<FactNode> = facts_note(next.facts, "self", "name", name, text, next.turns + 1)
-                next = commit_name_fact(next, name, recordedFacts)
+                let recordedFacts: FactInsertResult = facts_try_note_with_allocation(next.facts, "self", "name", name, text, next.turns + 1, allowAllocation)
+                if not recordedFacts.inserted {
+                    release_observer_additions(next.facts, memory.facts)
+                    return memory
+                }
+                next = commit_name_fact(next, name, recordedFacts.head)
             }
         }
     }
@@ -310,7 +323,12 @@ function observe(text: string, memory: Memory) -> Memory {
         if personStart >= 0 {
             let otherName: string = extract_fact_value(text, personStart + (strlen(prefix) as i32), 2)
             if not same(otherName, "") {
-                next.facts = facts_note(next.facts, owner, "name", otherName, text, next.turns + 1)
+                let insertion: FactInsertResult = facts_try_note_with_allocation(next.facts, owner, "name", otherName, text, next.turns + 1, allowAllocation)
+                if not insertion.inserted {
+                    release_observer_additions(next.facts, memory.facts)
+                    return memory
+                }
+                next.facts = insertion.head
             }
         }
 
@@ -331,7 +349,12 @@ function observe(text: string, memory: Memory) -> Memory {
                 job = extract_fact_value(text, jobAt, 3)
             }
             if not same(job, "") {
-                next.facts = facts_note(next.facts, "self", "job", job, text, next.turns + 1)
+                let insertion: FactInsertResult = facts_try_note_with_allocation(next.facts, "self", "job", job, text, next.turns + 1, allowAllocation)
+                if not insertion.inserted {
+                    release_observer_additions(next.facts, memory.facts)
+                    return memory
+                }
+                next.facts = insertion.head
             }
         }
         if first_word(lower, "i") {
@@ -339,12 +362,21 @@ function observe(text: string, memory: Memory) -> Memory {
             if cityStart >= 0 {
                 let city: string = extract_fact_value(text, cityStart + 10, 3)
                 if not same(city, "") {
-                    next.facts = facts_note(next.facts, "self", "city", city, text, next.turns + 1)
+                    let insertion: FactInsertResult = facts_try_note_with_allocation(next.facts, "self", "city", city, text, next.turns + 1, allowAllocation)
+                if not insertion.inserted {
+                    release_observer_additions(next.facts, memory.facts)
+                    return memory
+                }
+                next.facts = insertion.head
                 }
             }
         }
     }
     return next
+}
+
+function observe(text: string, memory: Memory) -> Memory {
+    return observe_with_allocation(text, memory, true)
 }
 
 function proposal(reply: string, module: string, priority: i32, memory: Memory) -> Proposal {
@@ -1693,6 +1725,24 @@ function run_self_tests() -> i32 {
         println("FAIL: recall band must not be displaced by inherited topic")
         return 106
     }
+
+    let mut observerAllocationSeed: Memory = fresh_memory()
+    observerAllocationSeed.name = "Alice"
+    observerAllocationSeed.facts = facts_try_note(null, "self", "name", "Alice", "seed", 1).head
+    let observerDenied: Memory = observe_with_allocation("my name is Bob", observerAllocationSeed, false)
+    if observerDenied.facts != observerAllocationSeed.facts or not same(observerDenied.name, "Alice") or
+       facts_count(observerDenied.facts) != 1 {
+        println("FAIL: denied observer insertion must preserve prior name and fact chain")
+        return 195
+    }
+    let observerAccepted: Memory = observe_with_allocation("my name is Bob", observerAllocationSeed, true)
+    if not same(observerAccepted.name, "Bob") or facts_count(observerAccepted.facts) != 2 or
+       not same(facts_latest(observerAllocationSeed.facts, "self", "name"), "Alice") {
+        println("FAIL: successful observer insertion must preserve immutable ancestry")
+        return 196
+    }
+    release_observer_additions(observerAccepted.facts, observerAllocationSeed.facts)
+    facts_release(observerAllocationSeed.facts)
 
     let mut equalFactSource: Memory = fresh_memory()
     equalFactSource.facts = facts_note(null, "self", "city", "Cambridge", "original", 1)
