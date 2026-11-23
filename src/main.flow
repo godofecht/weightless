@@ -1694,18 +1694,18 @@ function run_self_tests() -> i32 {
     let mut alteredScalarSnapshot: Memory = isolate_candidate_memory(faultMemory)
     if not responder_snapshot_ready(faultMemory, alteredScalarSnapshot) {
         println("FAIL: intact scalar snapshot must remain valid")
-        failures = failures + 1
+        return 187
     }
     alteredScalarSnapshot.topic = "corrupted-topic"
     if responder_snapshot_ready(faultMemory, alteredScalarSnapshot) {
         println("FAIL: altered topic scalar must invalidate responder snapshot")
-        failures = failures + 1
+        return 188
     }
     alteredScalarSnapshot.topic = faultMemory.topic
     alteredScalarSnapshot.turns = faultMemory.turns + 1
     if responder_snapshot_ready(faultMemory, alteredScalarSnapshot) {
         println("FAIL: altered turn counter must invalidate responder snapshot")
-        failures = failures + 1
+        return 189
     }
     release_candidate_memory(alteredScalarSnapshot, faultMemory)
 
