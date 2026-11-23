@@ -846,7 +846,8 @@ function run_observers(text: string, previous: Memory, reading: LineReading) -> 
 
 function responder_snapshot_ready(observed: Memory, snapshot: Memory) -> bool {
     return (observed.recentCount == 0 or (snapshot.recent != null and snapshot.recent != observed.recent)) and
-        (observed.facts == null or (snapshot.facts != null and snapshot.facts != observed.facts))
+        (observed.facts == null or (snapshot.facts != null and snapshot.facts != observed.facts and
+            facts_count(snapshot.facts) == facts_count(observed.facts)))
 }
 
 function collect_responses(text: string, reading: LineReading, previous: Memory, observed: Memory) -> CandidateSet {
@@ -1656,6 +1657,17 @@ function run_self_tests() -> i32 {
         println("FAIL: allocation denial must leave original transcript intact")
         return 92
     }
+    let mut partialFacts: Memory = fresh_memory()
+    partialFacts.facts = facts_note(null, "self", "name", "Alice", "fixture", 1)
+    partialFacts.facts = facts_note(partialFacts.facts, "self", "city", "Cambridge", "fixture", 2)
+    let mut incompleteSnapshot: Memory = partialFacts
+    incompleteSnapshot.facts = facts_note(null, "self", "city", "Cambridge", "fixture", 2)
+    if responder_snapshot_ready(partialFacts, incompleteSnapshot) {
+        println("FAIL: truncated responder fact snapshot must fail closed")
+        return 181
+    }
+    facts_release(incompleteSnapshot.facts)
+    facts_release(partialFacts.facts)
     let isolatedSnapshot: Memory = isolate_winning_transcript(faultMemory)
     if not responder_snapshot_ready(faultMemory, isolatedSnapshot) {
         println("FAIL: independent responder transcript must be accepted")
