@@ -1,7 +1,7 @@
 import std.bytebuf { ByteBuf, bb_new, bb_putc, bb_str, bb_free }
 import std.process { proc_argc, proc_argv }
 import .knowledge { KnowledgeHit, knowledge_lookup, knowledge_corpus_count, knowledge_corpus_release }
-import .facts { FactNode, facts_note, facts_latest, facts_latest_turn, facts_count, facts_release, facts_clone }
+import .facts { FactNode, facts_note, facts_latest, facts_latest_turn, facts_count, facts_release, facts_clone, facts_equal }
 import .understanding { LineReading, understand_line }
 
 extern {
@@ -849,7 +849,7 @@ function responder_snapshot_ready(observed: Memory, snapshot: Memory) -> bool {
         (observed.recentCount == 0 or (snapshot.recent != null and snapshot.recent != observed.recent and
             snapshot.recentCapacity >= snapshot.recentCount))) and
         (observed.facts == null or (snapshot.facts != null and snapshot.facts != observed.facts and
-            facts_count(snapshot.facts) == facts_count(observed.facts)))
+            facts_equal(snapshot.facts, observed.facts)))
 }
 
 function collect_responses(text: string, reading: LineReading, previous: Memory, observed: Memory) -> CandidateSet {
@@ -1637,6 +1637,22 @@ function run_self_tests() -> i32 {
         println("FAIL: recall band must not be displaced by inherited topic")
         return 106
     }
+
+    let mut equalFactSource: Memory = fresh_memory()
+    equalFactSource.facts = facts_note(null, "self", "city", "Cambridge", "original", 1)
+    let mut alteredFactSnapshot: Memory = isolate_candidate_memory(equalFactSource)
+    if not responder_snapshot_ready(equalFactSource, alteredFactSnapshot) {
+        println("FAIL: identical fact-chain snapshot should be accepted")
+        return 183
+    }
+    alteredFactSnapshot.facts[0].value = "Oxford"
+    if responder_snapshot_ready(equalFactSource, alteredFactSnapshot) or
+       not same(facts_latest(equalFactSource.facts, "self", "city"), "Cambridge") {
+        println("FAIL: same-length modified fact-chain snapshot must be rejected")
+        return 184
+    }
+    release_candidate_memory(alteredFactSnapshot, equalFactSource)
+    release_history(equalFactSource)
 
     let mut faultMemory: Memory = fresh_memory()
     let _faultSeed: Proposal = turn("hello", &faultMemory)
