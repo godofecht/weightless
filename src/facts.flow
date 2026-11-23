@@ -119,3 +119,20 @@ export function facts_release(head: ptr<FactNode>) {
         node = previous
     }
 }
+
+export function facts_equal(a: ptr<FactNode>, b: ptr<FactNode>) -> bool {
+    let mut left: ptr<FactNode> = a
+    let mut right: ptr<FactNode> = b
+    while left != null and right != null {
+        if strcmp(left[0].owner, right[0].owner) != 0 or
+           strcmp(left[0].key, right[0].key) != 0 or
+           strcmp(left[0].value, right[0].value) != 0 or
+           strcmp(left[0].source, right[0].source) != 0 or
+           left[0].turn != right[0].turn {
+            return false
+        }
+        left = left[0].previous
+        right = right[0].previous
+    }
+    return left == null and right == null
+}
