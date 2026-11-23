@@ -844,10 +844,26 @@ function run_observers(text: string, previous: Memory, reading: LineReading) -> 
     return observe_topic(reading, withFacts)
 }
 
+function transcript_equal(a: Memory, b: Memory) -> bool {
+    if a.recentCount != b.recentCount {
+        return false
+    }
+    for i in 0 to a.recentCount {
+        let left: TurnRecord = a.recent[i]
+        let right: TurnRecord = b.recent[i]
+        if not same(left.user, right.user) or not same(left.bot, right.bot) or
+           not same(left.module, right.module) or not same(left.topic, right.topic) or
+           not same(left.entry, right.entry) {
+            return false
+        }
+    }
+    return true
+}
+
 function responder_snapshot_ready(observed: Memory, snapshot: Memory) -> bool {
     return (snapshot.recentCount == observed.recentCount and
         (observed.recentCount == 0 or (snapshot.recent != null and snapshot.recent != observed.recent and
-            snapshot.recentCapacity >= snapshot.recentCount))) and
+            snapshot.recentCapacity >= snapshot.recentCount and transcript_equal(observed, snapshot)))) and
         (observed.facts == null or (snapshot.facts != null and snapshot.facts != observed.facts and
             facts_equal(snapshot.facts, observed.facts)))
 }
@@ -1653,6 +1669,22 @@ function run_self_tests() -> i32 {
     }
     release_candidate_memory(alteredFactSnapshot, equalFactSource)
     release_history(equalFactSource)
+
+    let mut transcriptIntegrity: Memory = fresh_memory()
+    let _integritySeed: Proposal = turn("hello", &transcriptIntegrity)
+    let mut transcriptClone: Memory = isolate_candidate_memory(transcriptIntegrity)
+    if not responder_snapshot_ready(transcriptIntegrity, transcriptClone) {
+        println("FAIL: identical transcript snapshot should be accepted")
+        return 185
+    }
+    transcriptClone.recent[0].topic = "altered"
+    if responder_snapshot_ready(transcriptIntegrity, transcriptClone) or
+       same(transcriptIntegrity.recent[0].topic, "altered") {
+        println("FAIL: same-length modified transcript metadata must be rejected")
+        return 186
+    }
+    release_candidate_memory(transcriptClone, transcriptIntegrity)
+    release_history(transcriptIntegrity)
 
     let mut faultMemory: Memory = fresh_memory()
     let _faultSeed: Proposal = turn("hello", &faultMemory)
