@@ -17,7 +17,9 @@ extern {
 struct TurnRecord {
     user: string,
     bot: string,
-    module: string
+    module: string,
+    topic: string,
+    entry: string
 }
 
 struct Memory {
@@ -658,7 +660,7 @@ function fact_reply(lower: string, memory: Memory) -> Proposal {
 
 function recent_turn(memory: Memory, stepsBack: i32) -> TurnRecord {
     if stepsBack < 1 or stepsBack > memory.recentCount or memory.recent == null {
-        return TurnRecord { user: "", bot: "", module: "" }
+        return TurnRecord { user: "", bot: "", module: "", topic: "", entry: "" }
     }
     return memory.recent[memory.recentCount - stepsBack]
 }
@@ -726,7 +728,7 @@ function after_transcript(text: string, winning: Proposal, memory: Memory) -> Me
     after = append_turn(after, TurnRecord {
         user: text,
         bot: winning.reply,
-        module: winning.module
+        module: winning.module, topic: winning.topic, entry: winning.entry
     })
     if after.recentCount == countBefore + 1 {
         after.lastUser = text
@@ -1061,7 +1063,7 @@ function run_self_tests() -> i32 {
         return 166
     }
     let oneTurnHistory: Memory = append_turn(oneTurnEmpty,
-        TurnRecord { user: "earlier user", bot: "earlier reply", module: "greeting" })
+        TurnRecord { user: "earlier user", bot: "earlier reply", module: "greeting", topic: "", entry: "" })
     if not same(recall_reply("what did i say 1 turn ago", oneTurnHistory).reply, "You said: earlier user") or
        not same(recall_reply("what did you say one turn ago", oneTurnHistory).reply, "I said: earlier reply") or
        not same(recall_reply("which module answered 1 turn ago", oneTurnHistory).reply, "The module was greeting.") {
@@ -1071,7 +1073,7 @@ function run_self_tests() -> i32 {
     }
     release_history(oneTurnHistory)
     let mut hookSeed: Memory = fresh_memory()
-    hookSeed = append_turn(hookSeed, TurnRecord { user: "previous", bot: "earlier", module: "greeting" })
+    hookSeed = append_turn(hookSeed, TurnRecord { user: "previous", bot: "earlier", module: "greeting", topic: "", entry: "" })
     hookSeed.turns = 1
     let hookCandidate: Memory = isolate_candidate_memory(hookSeed)
     let hookProposal: Proposal = proposal("Understood.", "greeting", 500, hookCandidate)
@@ -1103,7 +1105,7 @@ function run_self_tests() -> i32 {
     let mut snapshotSeed: Memory = fresh_memory()
     snapshotSeed.name = "Alice"
     snapshotSeed.facts = facts_note(null, "self", "name", "Alice", "initial", 1)
-    snapshotSeed = append_turn(snapshotSeed, TurnRecord { user: "hello", bot: "hi", module: "greeting" })
+    snapshotSeed = append_turn(snapshotSeed, TurnRecord { user: "hello", bot: "hi", module: "greeting", topic: "", entry: "" })
     let mut snapshotA: Memory = isolate_candidate_memory(snapshotSeed)
     let mut snapshotB: Memory = isolate_candidate_memory(snapshotSeed)
     if not responder_snapshot_ready(snapshotSeed, snapshotA) or
@@ -1116,7 +1118,7 @@ function run_self_tests() -> i32 {
         return 162
     }
     snapshotA.name = "Bob"
-    snapshotA.recent[0] = TurnRecord { user: "changed", bot: "changed", module: "changed" }
+    snapshotA.recent[0] = TurnRecord { user: "changed", bot: "changed", module: "changed", topic: "", entry: "" }
     let changedFacts: ptr<FactNode> = facts_note(snapshotA.facts, "self", "name", "Bob", "candidate", 2)
     if changedFacts != snapshotA.facts {
         snapshotA.facts = changedFacts
@@ -1405,9 +1407,9 @@ function run_self_tests() -> i32 {
         return 127
     }
     let mut threeTurnMemory: Memory = fresh_memory()
-    threeTurnMemory = append_turn(threeTurnMemory, TurnRecord { user: "first user", bot: "first bot", module: "first_module" })
-    threeTurnMemory = append_turn(threeTurnMemory, TurnRecord { user: "second user", bot: "second bot", module: "second_module" })
-    threeTurnMemory = append_turn(threeTurnMemory, TurnRecord { user: "third user", bot: "third bot", module: "third_module" })
+    threeTurnMemory = append_turn(threeTurnMemory, TurnRecord { user: "first user", bot: "first bot", module: "first_module", topic: "", entry: "" })
+    threeTurnMemory = append_turn(threeTurnMemory, TurnRecord { user: "second user", bot: "second bot", module: "second_module", topic: "", entry: "" })
+    threeTurnMemory = append_turn(threeTurnMemory, TurnRecord { user: "third user", bot: "third bot", module: "third_module", topic: "", entry: "" })
     let threeUser: Proposal = recall_reply("what did i say three turns ago", threeTurnMemory)
     if not same(threeUser.reply, "You said: first user") {
         println("FAIL: third-turn user transcript recall")
@@ -1680,7 +1682,7 @@ function run_self_tests() -> i32 {
             }
         }
     }
-    independentCandidates.values[0].memory.recent[0] = TurnRecord { user: "mutated", bot: "mutated", module: "mutated" }
+    independentCandidates.values[0].memory.recent[0] = TurnRecord { user: "mutated", bot: "mutated", module: "mutated", topic: "", entry: "" }
     if not same(candidateSource.recent[0].user, "hello") {
         println("FAIL: candidate transcript mutation leaked into session")
         return 85
@@ -1695,7 +1697,7 @@ function run_self_tests() -> i32 {
         println("FAIL: winning transcript must have independent storage")
         return 75
     }
-    isolationCopy.recent[0] = TurnRecord { user: "changed", bot: "changed", module: "changed" }
+    isolationCopy.recent[0] = TurnRecord { user: "changed", bot: "changed", module: "changed", topic: "", entry: "" }
     if not same(isolationSource.recent[0].user, "hello") {
         println("FAIL: winning transcript copy must not mutate previous history")
         return 76
@@ -1710,7 +1712,7 @@ function run_self_tests() -> i32 {
         println("FAIL: responder candidate transcript must be isolated")
         return 77
     }
-    isolatedCandidates.values[0].memory.recent[0] = TurnRecord { user: "candidate-only", bot: "", module: "" }
+    isolatedCandidates.values[0].memory.recent[0] = TurnRecord { user: "candidate-only", bot: "", module: "", topic: "", entry: "" }
     if not same(candidateMemory.recent[0].user, "hello") {
         println("FAIL: candidate mutation must not change committed transcript")
         return 78
@@ -1731,7 +1733,7 @@ function run_self_tests() -> i32 {
         println("FAIL: grown transcript must copy into independent storage")
         return 80
     }
-    copiedTranscript.recent[39] = TurnRecord { user: "altered", bot: "altered", module: "altered" }
+    copiedTranscript.recent[39] = TurnRecord { user: "altered", bot: "altered", module: "altered", topic: "", entry: "" }
     if not same(longTranscript.recent[39].user, "hello") {
         println("FAIL: grown transcript snapshot must isolate tail mutations")
         return 81
@@ -2025,10 +2027,10 @@ function run_self_tests() -> i32 {
     release_history(committedSnapshot)
     let mut repeatMemory: Memory = fresh_memory()
     repeatMemory = append_turn(repeatMemory, TurnRecord {
-        user: "first", bot: "Already answered", module: "general"
+        user: "first", bot: "Already answered", module: "general", topic: "", entry: ""
     })
     repeatMemory = append_turn(repeatMemory, TurnRecord {
-        user: "second", bot: "Different answer", module: "general"
+        user: "second", bot: "Different answer", module: "general", topic: "", entry: ""
     })
     repeatMemory.lastReply = "Different answer"
     let repeated: Proposal = proposal("Already answered", "general_a", 200, repeatMemory)
@@ -2358,6 +2360,22 @@ function run_self_tests() -> i32 {
         println("FAIL: greeting prefix must not hijack an actual question")
         return 46
     }
+    let mut transcriptMetadata: Memory = fresh_memory()
+    let parkingTranscript: Proposal = turn("is parking on the pavement legal?", &transcriptMetadata)
+    if transcriptMetadata.recentCount != 1 or
+       not same(transcriptMetadata.recent[0].topic, "parking") or
+       not same(transcriptMetadata.recent[0].entry, "parking-on-the-pavement") or
+       not same(transcriptMetadata.recent[0].module, parkingTranscript.module) {
+        println("FAIL: winning knowledge topic and entry must survive transcript commit")
+        return 178
+    }
+    let _unrelatedTranscript: Proposal = turn("hello", &transcriptMetadata)
+    if transcriptMetadata.recentCount != 2 or
+       not same(transcriptMetadata.recent[1].entry, "") {
+        println("FAIL: transcript entry metadata must not leak into unrelated turns")
+        return 179
+    }
+    release_history(transcriptMetadata)
     release_history(topicMemory)
     release_history(prefixedQuestion)
     release_history(unidentified)
