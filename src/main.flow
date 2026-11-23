@@ -479,6 +479,16 @@ function knowledge_safety_priority(hit: KnowledgeHit) -> i32 {
     return 0
 }
 
+function knowledge_entry_topic(hit: KnowledgeHit) -> string {
+    if same(hit.entry, "parking-on-the-pavement") {
+        return "parking"
+    }
+    if same(hit.entry, "desk-screen-height") {
+        return "technology"
+    }
+    return ""
+}
+
 function knowledge_reply(text: string, lower: string, memory: Memory) -> Proposal {
     let hit: KnowledgeHit = knowledge_lookup(lower)
     if hit.score > 0 {
@@ -486,7 +496,7 @@ function knowledge_reply(text: string, lower: string, memory: Memory) -> Proposa
         if safetyPriority >= 9000 {
             return attributed_proposal(hit.reply, hit.module, safetyPriority, memory, "", hit.entry)
         }
-        return attributed_proposal(hit.reply, hit.module, 300 + hit.score, memory, "", hit.entry)
+        return attributed_proposal(hit.reply, hit.module, 300 + hit.score, memory, knowledge_entry_topic(hit), hit.entry)
     }
     let reading: LineReading = understand_line(text, memory.topic)
     if same(reading.topic, "kettle") and contains(lower, "how long") {
@@ -1005,6 +1015,29 @@ function read_line() -> InputLine {
 }
 
 function run_self_tests() -> i32 {
+    let parkingHit: KnowledgeHit = knowledge_lookup("is parking on the pavement legal?")
+    let screenHit: KnowledgeHit = knowledge_lookup("should i get a laptop stand for my low screen?")
+    let unrelatedHit: KnowledgeHit = knowledge_lookup("why is my plug hot?")
+    if not same(parkingHit.entry, "parking-on-the-pavement") or
+       not same(knowledge_entry_topic(parkingHit), "parking") or
+       not same(screenHit.entry, "desk-screen-height") or
+       not same(knowledge_entry_topic(screenHit), "technology") or
+       not same(knowledge_entry_topic(unrelatedHit), "") {
+        println("FAIL: source-entry topic metadata must not leak across knowledge entries")
+        return 176
+    }
+    let specialistMemory: Memory = fresh_memory()
+    let parkingCandidate: Proposal = knowledge_reply("is parking on the pavement legal?", "is parking on the pavement legal?", specialistMemory)
+    let screenCandidate: Proposal = knowledge_reply("should i get a laptop stand for my low screen?", "should i get a laptop stand for my low screen?", specialistMemory)
+    let knowledgeRecallCandidate: Proposal = proposal("Recall", "recall", 7000, specialistMemory)
+    if not same(prefer_with_explicit_topic(knowledgeRecallCandidate, parkingCandidate, specialistMemory, "parking", true).entry, "parking-on-the-pavement") or
+       not same(prefer_with_explicit_topic(knowledgeRecallCandidate, screenCandidate, specialistMemory, "technology", true).entry, "desk-screen-height") or
+       not same(prefer_with_explicit_topic(knowledgeRecallCandidate, parkingCandidate, specialistMemory, "parking", false).module, "recall") or
+       not same(prefer_with_explicit_topic(knowledgeRecallCandidate, screenCandidate, specialistMemory, "parking", true).module, "recall") {
+        println("FAIL: attributed knowledge specialists must obey explicit-topic and inherited-topic precedence")
+        return 177
+    }
+
     let attributedKettle: Proposal = attributed_proposal("Descale", "answers", 300, fresh_memory(), "kettle", "kettle-descale")
     let unrelatedAnswer: Proposal = attributed_proposal("Parking", "answers", 600, fresh_memory(), "parking", "parking-rules")
     let genericAnswer: Proposal = proposal("General", "answers", 600, fresh_memory())
