@@ -1029,11 +1029,11 @@ function run_self_tests() -> i32 {
     let specialistMemory: Memory = fresh_memory()
     let parkingCandidate: Proposal = knowledge_reply("is parking on the pavement legal?", "is parking on the pavement legal?", specialistMemory)
     let screenCandidate: Proposal = knowledge_reply("should i get a laptop stand for my low screen?", "should i get a laptop stand for my low screen?", specialistMemory)
-    let recallCandidate: Proposal = proposal("Recall", "recall", 7000, specialistMemory)
-    if not same(prefer_with_explicit_topic(recallCandidate, parkingCandidate, specialistMemory, "parking", true).entry, "parking-on-the-pavement") or
-       not same(prefer_with_explicit_topic(recallCandidate, screenCandidate, specialistMemory, "technology", true).entry, "desk-screen-height") or
-       not same(prefer_with_explicit_topic(recallCandidate, parkingCandidate, specialistMemory, "parking", false).module, "recall") or
-       not same(prefer_with_explicit_topic(recallCandidate, screenCandidate, specialistMemory, "parking", true).module, "recall") {
+    let knowledgeRecallCandidate: Proposal = proposal("Recall", "recall", 7000, specialistMemory)
+    if not same(prefer_with_explicit_topic(knowledgeRecallCandidate, parkingCandidate, specialistMemory, "parking", true).entry, "parking-on-the-pavement") or
+       not same(prefer_with_explicit_topic(knowledgeRecallCandidate, screenCandidate, specialistMemory, "technology", true).entry, "desk-screen-height") or
+       not same(prefer_with_explicit_topic(knowledgeRecallCandidate, parkingCandidate, specialistMemory, "parking", false).module, "recall") or
+       not same(prefer_with_explicit_topic(knowledgeRecallCandidate, screenCandidate, specialistMemory, "parking", true).module, "recall") {
         println("FAIL: attributed knowledge specialists must obey explicit-topic and inherited-topic precedence")
         return 177
     }
